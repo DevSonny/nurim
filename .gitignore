@@ -1,0 +1,27 @@
+# Screenshots
+screenshot/
+
+# OS / filesystem artifacts
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Editor & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local notes & scratch
+.notes/
+*.local.md
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Dependency directories (if a Node/Python project is added later)
+node_modules/
+__pycache__/
+*.pyc
