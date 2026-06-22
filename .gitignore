@@ -25,3 +25,8 @@ Thumbs.db
 node_modules/
 __pycache__/
 *.pyc
+
+# Next.js build output
+.next/
+out/
+tsconfig.tsbuildinfo
