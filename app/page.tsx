@@ -1,4 +1,4 @@
-import MoleculeCanvas from '@/components/molecule'
+import SolarCanvas from '@/components/solar'
 import GoogleButton from '@/components/auth/GoogleButton'
 import { colors } from '@/lib/tokens'
 
@@ -19,7 +19,7 @@ export default function Home() {
           inset: 0,
         }}
       >
-        <MoleculeCanvas />
+        <SolarCanvas />
       </div>
 
       {/* Subtle radial haze so login card reads cleanly */}

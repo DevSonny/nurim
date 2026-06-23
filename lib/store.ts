@@ -7,6 +7,7 @@ import type { NodeDef, BondDef } from './tokens'
 
 export interface StoredNode extends NodeDef {
   createdAt: number
+  achievedAt?: number   // optional — set when node is "달성". undefined = not achieved.
 }
 
 const STORAGE_KEY = 'nurim_nodes_v1'
@@ -131,6 +132,26 @@ export function deleteNode(id: string): boolean {
 export function resetToDefaults() {
   if (typeof window === 'undefined') return
   localStorage.removeItem(STORAGE_KEY)
+}
+
+// ── Achievement API ───────────────────────────────────────────────────────────
+
+/** Mark a node as achieved (on=true) or reset to un-achieved (on=false). */
+export function setAchieved(id: string, on = true): void {
+  const nodes = load()
+  const updated = nodes.map(n =>
+    n.id === id ? { ...n, achievedAt: on ? Date.now() : undefined } : n
+  )
+  save(updated)
+}
+
+export function isAchieved(id: string): boolean {
+  return !!load().find(n => n.id === id)?.achievedAt
+}
+
+export function getAchievedIds(): Set<string> {
+  const nodes = load()
+  return new Set(nodes.filter(n => n.achievedAt).map(n => n.id))
 }
 
 export { MAX_ORBITS, MAX_SUBS_PER_ORBIT }

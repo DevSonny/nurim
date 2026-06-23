@@ -1,4 +1,4 @@
-import MoleculeCanvas from '@/components/molecule'
+import SolarCanvas from '@/components/solar'
 import BottomNav from '@/components/ui/BottomNav'
 import { colors } from '@/lib/tokens'
 
@@ -14,7 +14,7 @@ export default function DashboardPage() {
     >
       {/* 3D molecule backdrop */}
       <div style={{ position: 'absolute', inset: 0 }}>
-        <MoleculeCanvas />
+        <SolarCanvas />
       </div>
 
       {/* Edge vignette */}

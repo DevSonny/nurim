@@ -1,7 +1,7 @@
 'use client'
 import dynamic from 'next/dynamic'
 
-const MoleculeScene = dynamic(() => import('./MoleculeScene'), {
+const SolarCanvas = dynamic(() => import('./SolarSystemScene'), {
   ssr: false,
   loading: () => (
     <div
@@ -17,9 +17,9 @@ const MoleculeScene = dynamic(() => import('./MoleculeScene'), {
         letterSpacing: '0.5px',
       }}
     >
-      분자 로딩 중…
+      우주 로딩 중…
     </div>
   ),
 })
 
-export default MoleculeScene
+export default SolarCanvas
