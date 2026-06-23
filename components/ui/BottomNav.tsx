@@ -5,7 +5,7 @@ import { colors } from '@/lib/tokens'
 
 const ITEMS = [
   { href: '/dashboard', label: '홈',   icon: '◉' },
-  { href: '/pulse',     label: '펄스', icon: '⊕' },
+  { href: '/signal',    label: '교신', icon: '⊕' },
   { href: '/stats',     label: '통계', icon: '▦' },
   { href: '/community', label: '피드', icon: '⊞' },
   { href: '/settings',  label: '설정', icon: '⚙' },
@@ -36,7 +36,7 @@ export default function BottomNav() {
     >
       {ITEMS.map(item => {
         const active = path === item.href || path.startsWith(item.href + '/')
-        const isPulse = item.href === '/pulse'
+        const isPulse = item.href === '/signal'
         return (
           <Link
             key={item.href}

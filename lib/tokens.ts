@@ -8,6 +8,21 @@ export const colors = {
   orbits: ['#c040ff', '#44ff88', '#ffb830', '#ff4466', '#4488ff'] as const,
 } as const
 
+export const fonts = {
+  display: 'var(--font-display, "Space Grotesk"), sans-serif',
+  body: 'Pretendard, var(--font-display, "Space Grotesk"), system-ui, sans-serif',
+} as const
+
+export const fontSize = {
+  xs:   13,
+  sm:   15,
+  base: 17,
+  lg:   20,
+  xl:   26,
+  xl2:  36,
+  hero: 'clamp(48px, 10vw, 80px)',
+} as const
+
 export type NodeType = 'core' | 'orbit' | 'sub'
 
 export interface NodeDef {
@@ -16,6 +31,11 @@ export interface NodeDef {
   label: string
   orbitIdx: number
   parentId?: string
+  // 선택 목표 (Pulse 추적용 — 생성 후 setGoal()로만 수정 허용)
+  goalType?: 'accumulation' | 'repetition'
+  target?: number
+  unit?: string
+  period?: 'day' | 'week' | 'month'
 }
 
 export interface BondDef {

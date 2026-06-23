@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/ui/BottomNav'
-import { colors } from '@/lib/tokens'
-import { getNodes } from '@/lib/store'
-import type { StoredNode } from '@/lib/store'
+import { colors, fonts, fontSize } from '@/lib/tokens'
+import { getNodes, addPulse } from '@/lib/store'
+import type { StoredNode, PulseKind } from '@/lib/store'
+import { getProgress } from '@/lib/aggregate'
+import type { Progress } from '@/lib/aggregate'
 
 type InputMode = '점수' | '시간' | '체크' | '투자' | '진행도'
 
@@ -15,6 +17,14 @@ const MODES: { key: InputMode; label: string; icon: string }[] = [
   { key: '투자',  label: '투자',  icon: '₩' },
   { key: '진행도', label: '진행도', icon: '▥' },
 ]
+
+const MODE_KIND: Record<InputMode, PulseKind> = {
+  '점수': 'score',
+  '시간': 'time',
+  '체크': 'check',
+  '투자': 'money',
+  '진행도': 'progress',
+}
 
 export default function PulsePage() {
   const router = useRouter()
@@ -31,6 +41,7 @@ export default function PulsePage() {
   const [timeVal, setTimeVal] = useState(30)
   const [checked, setChecked] = useState(false)
   const [amount, setAmount] = useState(50000)
+  const [investSign, setInvestSign] = useState<'income' | 'expense'>('income')
   const [progress, setProgress] = useState(60)
   const [memo, setMemo] = useState('')
 
@@ -42,8 +53,30 @@ export default function PulsePage() {
   const accentIdx = selectedNode ? selectedNode.orbitIdx : -1
   const accent = accentIdx >= 0 ? colors.orbits[accentIdx % colors.orbits.length] : colors.core
 
+  const [progressData, setProgressData] = useState<Progress | null>(null)
+  useEffect(() => {
+    const targetId = selectedSub ?? selectedOrbit
+    if (!targetId) { setProgressData(null); return }
+    const p = getProgress(targetId)
+    setProgressData(p.hasGoal ? p : null)
+  }, [selectedSub, selectedOrbit])
+
   const handleSave = () => {
-    // TODO: connect to data store
+    if (!selectedOrbit) return
+    const targetId = selectedSub ?? selectedOrbit
+
+    // 모드별 값 정규화
+    let value: number
+    switch (mode) {
+      case '점수':   value = score; break
+      case '시간':   value = timeVal; break
+      case '체크':   value = checked ? 1 : 0; break
+      case '투자':   value = investSign === 'expense' ? -amount : amount; break
+      case '진행도': value = progress; break
+      default:       value = 0
+    }
+
+    addPulse(targetId, value, undefined, memo.trim() || undefined, MODE_KIND[mode])
     router.push('/dashboard')
   }
 
@@ -79,7 +112,7 @@ export default function PulsePage() {
           >
             ←
           </button>
-          <h1 style={{ fontSize: '17px', fontWeight: 700 }}>펄스 기록</h1>
+          <h1 style={{ fontSize: '17px', fontWeight: 700 }}>교신 기록</h1>
           <div style={{ width: '28px' }} />
         </div>
       </div>
@@ -147,6 +180,50 @@ export default function PulsePage() {
           </>
         )}
 
+        {/* Progress preview card — shown when selected node has a goal */}
+        {progressData && (
+          <div
+            style={{
+              background: `${accent}0d`,
+              border: `1px solid ${accent}33`,
+              borderRadius: '14px',
+              padding: '14px 16px',
+              marginBottom: '16px',
+            }}
+          >
+            <div style={{ fontSize: fontSize.xs, color: `${accent}88`, marginBottom: '6px', letterSpacing: '0.3px' }}>
+              현재 진행
+            </div>
+            <div
+              style={{
+                fontFamily: fonts.display,
+                fontSize: fontSize.xl,
+                fontWeight: 800,
+                color: accent,
+                marginBottom: '8px',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              {progressData.current}
+              <span style={{ fontSize: fontSize.sm, fontWeight: 500, opacity: 0.7 }}>
+                /{progressData.target}{progressData.unit}
+              </span>
+            </div>
+            <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${progressData.pct * 100}%`,
+                  background: accent,
+                  borderRadius: '2px',
+                  boxShadow: `0 0 8px ${accent}88`,
+                  transition: 'width 0.3s',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Mode selector */}
         <Label>기록 방식</Label>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', overflowX: 'auto' }}>
@@ -197,7 +274,7 @@ export default function PulsePage() {
             <CheckInput value={checked} onChange={setChecked} accent={accent} />
           )}
           {mode === '투자' && (
-            <AmountInput value={amount} onChange={setAmount} accent={accent} />
+            <AmountInput value={amount} onChange={setAmount} sign={investSign} onSignChange={setInvestSign} accent={accent} />
           )}
           {mode === '진행도' && (
             <ProgressInput value={progress} onChange={setProgress} accent={accent} />
@@ -351,13 +428,45 @@ function CheckInput({ value, onChange, accent }: { value: boolean; onChange: (v:
   )
 }
 
-function AmountInput({ value, onChange, accent }: { value: number; onChange: (v: number) => void; accent: string }) {
+function AmountInput({ value, onChange, sign, onSignChange, accent }: {
+  value: number
+  onChange: (v: number) => void
+  sign: 'income' | 'expense'
+  onSignChange: (s: 'income' | 'expense') => void
+  accent: string
+}) {
+  const expenseColor = '#ff4466'
+  const valueColor = sign === 'expense' ? expenseColor : accent
   return (
     <div>
+      {/* 수입/지출 toggle */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+        {(['income', 'expense'] as const).map(s => (
+          <button
+            key={s}
+            onClick={() => onSignChange(s)}
+            style={{
+              flex: 1,
+              padding: '7px',
+              borderRadius: '10px',
+              border: `1px solid ${sign === s ? (s === 'income' ? accent : expenseColor) : colors.border}`,
+              background: sign === s ? (s === 'income' ? `${accent}18` : `${expenseColor}18`) : 'transparent',
+              color: sign === s ? (s === 'income' ? accent : expenseColor) : `${colors.text}44`,
+              fontSize: '12px',
+              fontWeight: sign === s ? 700 : 500,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s',
+            }}
+          >
+            {s === 'income' ? '+ 수입' : '− 지출'}
+          </button>
+        ))}
+      </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
         <span style={{ fontSize: '11px', color: `${colors.text}44` }}>금액</span>
-        <span style={{ fontSize: '28px', fontWeight: 800, color: accent }}>
-          {value.toLocaleString()}원
+        <span style={{ fontSize: '28px', fontWeight: 800, color: valueColor }}>
+          {sign === 'expense' ? '−' : '+'}{value.toLocaleString()}원
         </span>
       </div>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -368,9 +477,9 @@ function AmountInput({ value, onChange, accent }: { value: number; onChange: (v:
             style={{
               padding: '6px 12px',
               borderRadius: '10px',
-              border: `1px solid ${value === v ? accent : colors.border}`,
-              background: value === v ? `${accent}18` : 'transparent',
-              color: value === v ? accent : `${colors.text}55`,
+              border: `1px solid ${value === v ? valueColor : colors.border}`,
+              background: value === v ? `${valueColor}18` : 'transparent',
+              color: value === v ? valueColor : `${colors.text}55`,
               fontSize: '12px',
               cursor: 'pointer',
               fontFamily: 'inherit',

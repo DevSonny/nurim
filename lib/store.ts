@@ -1,7 +1,9 @@
 'use client'
 // Dynamic node store — replaces hardcoded NODES/BONDS in tokens.ts
 // Nodes are immutable after creation (label locked). Only deletion allowed.
+// Goal fields (goalType/target/unit/period) can be updated via setGoal().
 
+import { useState, useEffect } from 'react'
 import { colors } from './tokens'
 import type { NodeDef, BondDef } from './tokens'
 
@@ -10,9 +12,58 @@ export interface StoredNode extends NodeDef {
   achievedAt?: number   // optional — set when node is "달성". undefined = not achieved.
 }
 
-const STORAGE_KEY = 'nurim_nodes_v1'
+export type PulseKind = 'score' | 'time' | 'check' | 'money' | 'progress'
+
+export interface Pulse {
+  id: string
+  nodeId: string
+  date: string        // YYYY-MM-DD (local timezone)
+  value: number       // negative allowed for money (expense)
+  kind?: PulseKind
+  memo?: string
+  createdAt: number
+}
+
+const STORAGE_KEY  = 'nurim_nodes_v1'
+const PULSES_KEY   = 'nurim_pulses_v1'
 const MAX_ORBITS = 8
 const MAX_SUBS_PER_ORBIT = 6
+
+// ── Subscribe / version ───────────────────────────────────────────────────────
+
+let _storeVersion = 0
+const _listeners: Set<() => void> = new Set()
+
+function notifyListeners(): void {
+  _storeVersion++
+  _listeners.forEach(l => l())
+}
+
+export function subscribeStore(cb: () => void): () => void {
+  _listeners.add(cb)
+  return () => { _listeners.delete(cb) }
+}
+
+export function getStoreVersion(): number {
+  return _storeVersion
+}
+
+/** React hook — returns a counter that increments on every store write.
+ *  Use as a useMemo / useEffect dependency to re-run on store changes. */
+export function useStoreVersion(): number {
+  const [v, setV] = useState(getStoreVersion)
+  useEffect(() => subscribeStore(() => setV(getStoreVersion())), [])
+  return v
+}
+
+// ── Date helper ───────────────────────────────────────────────────────────────
+
+function toLocalDateStr(d: Date = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 // ── Default initial nodes ─────────────────────────────────────────────────────
 
@@ -30,7 +81,7 @@ const DEFAULT_NODES: StoredNode[] = [
   { id: 's5',    type: 'sub',   label: '투자',  orbitIdx: 2,  parentId: 'fin',   createdAt: 10 },
 ]
 
-// ── Storage helpers ───────────────────────────────────────────────────────────
+// ── Node storage helpers ──────────────────────────────────────────────────────
 
 function load(): StoredNode[] {
   if (typeof window === 'undefined') return DEFAULT_NODES
@@ -38,7 +89,6 @@ function load(): StoredNode[] {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULT_NODES
     const parsed = JSON.parse(raw) as StoredNode[]
-    // Always ensure core exists
     if (!parsed.find(n => n.id === 'core')) {
       parsed.unshift(DEFAULT_NODES[0])
     }
@@ -48,12 +98,32 @@ function load(): StoredNode[] {
   }
 }
 
-function save(nodes: StoredNode[]) {
+function save(nodes: StoredNode[]): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
+  notifyListeners()
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── Pulse storage helpers ─────────────────────────────────────────────────────
+
+function loadPulses(): Pulse[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(PULSES_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as Pulse[]
+  } catch {
+    return []
+  }
+}
+
+function savePulses(pulses: Pulse[]): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(PULSES_KEY, JSON.stringify(pulses))
+  notifyListeners()
+}
+
+// ── Public Node API ───────────────────────────────────────────────────────────
 
 export function getNodes(): StoredNode[] {
   return load()
@@ -73,13 +143,19 @@ export function getOrbitColor(orbitIdx: number): string {
   return colors.orbits[orbitIdx % colors.orbits.length]
 }
 
+type GoalFields = {
+  goalType: 'accumulation' | 'repetition'
+  target: number
+  unit?: string
+  period?: 'day' | 'week' | 'month'
+}
+
 /** Add a new orbit node. Returns null if at max capacity. */
-export function addOrbit(label: string): StoredNode | null {
+export function addOrbit(label: string, goal?: GoalFields): StoredNode | null {
   const nodes = load()
   const orbits = nodes.filter(n => n.type === 'orbit')
   if (orbits.length >= MAX_ORBITS) return null
 
-  // Next available orbitIdx
   const usedIdxs = new Set(orbits.map(o => o.orbitIdx))
   let orbitIdx = 0
   while (usedIdxs.has(orbitIdx)) orbitIdx++
@@ -90,13 +166,14 @@ export function addOrbit(label: string): StoredNode | null {
     label: label.trim(),
     orbitIdx,
     createdAt: Date.now(),
+    ...goal,
   }
   save([...nodes, node])
   return node
 }
 
 /** Add a sub-node under an orbit. Returns null if orbit not found or at max. */
-export function addSub(parentId: string, label: string): StoredNode | null {
+export function addSub(parentId: string, label: string, goal?: GoalFields): StoredNode | null {
   const nodes = load()
   const parent = nodes.find(n => n.id === parentId && n.type === 'orbit')
   if (!parent) return null
@@ -111,6 +188,7 @@ export function addSub(parentId: string, label: string): StoredNode | null {
     orbitIdx: parent.orbitIdx,
     parentId,
     createdAt: Date.now(),
+    ...goal,
   }
   save([...nodes, node])
   return node
@@ -129,9 +207,40 @@ export function deleteNode(id: string): boolean {
   return true
 }
 
-export function resetToDefaults() {
+export function resetToDefaults(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(STORAGE_KEY)
+  notifyListeners()
+}
+
+// ── Goal API (label-locked: only goal fields can be updated) ──────────────────
+
+/** Set or update goal on a node. Never changes label — only goal fields. */
+export function setGoal(id: string, goal: GoalFields): boolean {
+  const nodes = load()
+  const node = nodes.find(n => n.id === id)
+  if (!node || node.type === 'core') return false
+
+  const updated = nodes.map(n =>
+    n.id === id ? { ...n, ...goal } : n
+  )
+  save(updated)
+  return true
+}
+
+/** Clear goal from a node. */
+export function clearGoal(id: string): boolean {
+  const nodes = load()
+  const node = nodes.find(n => n.id === id)
+  if (!node) return false
+
+  const updated = nodes.map(n => {
+    if (n.id !== id) return n
+    const { goalType: _gt, target: _t, unit: _u, period: _p, ...rest } = n
+    return rest
+  })
+  save(updated)
+  return true
 }
 
 // ── Achievement API ───────────────────────────────────────────────────────────
@@ -152,6 +261,58 @@ export function isAchieved(id: string): boolean {
 export function getAchievedIds(): Set<string> {
   const nodes = load()
   return new Set(nodes.filter(n => n.achievedAt).map(n => n.id))
+}
+
+// ── Pulse API ─────────────────────────────────────────────────────────────────
+
+export function addPulse(
+  nodeId: string,
+  value: number,
+  date?: string,
+  memo?: string,
+  kind?: PulseKind,
+): Pulse {
+  const pulses = loadPulses()
+  const pulse: Pulse = {
+    id: `pulse_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    nodeId,
+    date: date ?? toLocalDateStr(),
+    value,
+    ...(kind ? { kind } : {}),
+    memo,
+    createdAt: Date.now(),
+  }
+  savePulses([...pulses, pulse])
+  return pulse
+}
+
+/** Get pulses. If nodeId is omitted, returns all pulses. */
+export function getPulses(nodeId?: string): Pulse[] {
+  const pulses = loadPulses()
+  if (nodeId === undefined) return pulses
+  return pulses.filter(p => p.nodeId === nodeId)
+}
+
+/** Get pulses for a node within a date range (inclusive, YYYY-MM-DD). */
+export function getPulsesInRange(nodeId: string, from: string, to: string): Pulse[] {
+  return loadPulses().filter(p =>
+    p.nodeId === nodeId && p.date >= from && p.date <= to
+  )
+}
+
+export function deletePulse(id: string): boolean {
+  const pulses = loadPulses()
+  const idx = pulses.findIndex(p => p.id === id)
+  if (idx === -1) return false
+  savePulses(pulses.filter(p => p.id !== id))
+  return true
+}
+
+/** Remove all pulse data (dev/reset use). */
+export function clearPulses(): void {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(PULSES_KEY)
+  notifyListeners()
 }
 
 export { MAX_ORBITS, MAX_SUBS_PER_ORBIT }

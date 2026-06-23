@@ -6,7 +6,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
-import { colors } from '@/lib/tokens'
+import { colors, fonts } from '@/lib/tokens'
 import '@/lib/solar-shaders'
 import type { PlanetMaterial, RingMaterial } from '@/lib/solar-shaders'
 import type { PlanetLayout, SatelliteLayout } from '@/lib/use-solar-layout'
@@ -15,6 +15,29 @@ import Satellite from './Satellite'
 
 const ARCHETYPE_INT: Record<string, number> = {
   gas: 0, rocky: 1, ringed: 2, alien: 3, ice: 4,
+}
+
+// ── Progress arc (partial ring showing goal completion) ───────────────────────
+
+function ProgressArc({ size, pct, color }: { size: number; pct: number; color: string }) {
+  const radius = size * 1.55
+  const SEGMENTS = 64
+  const count = Math.max(2, Math.ceil(pct * SEGMENTS))
+  const points: [number, number, number][] = []
+  for (let i = 0; i <= count; i++) {
+    const angle = (i / SEGMENTS) * Math.PI * 2 - Math.PI / 2
+    // XZ plane (horizontal, facing up)
+    points.push([Math.cos(angle) * radius, 0, Math.sin(angle) * radius])
+  }
+  return (
+    <Line
+      points={points}
+      color={color}
+      lineWidth={2.5}
+      transparent
+      opacity={0.8}
+    />
+  )
 }
 
 // Orbit-position helper (world space, inclined)
@@ -40,6 +63,7 @@ interface PlanetProps {
   onSatReturnComplete: () => void
   // lets SolarSystemScene boost sun on any achievement
   onAchievementPulse: () => void
+  onHoverChange?: (h: boolean) => void
 }
 
 type IgnitePhase = 'idle' | 'burst' | 'settle'
@@ -57,6 +81,7 @@ export default function Planet({
   onSatDockComplete,
   onSatReturnComplete,
   onAchievementPulse,
+  onHoverChange,
 }: PlanetProps) {
   const revGroupRef = useRef<THREE.Group>(null)  // orbital revolution group
   const meshRef     = useRef<THREE.Mesh>(null)
@@ -166,13 +191,22 @@ export default function Planet({
         />
       </mesh>
 
+      {/* Progress arc — shows pct of goal as partial ring in XZ plane */}
+      {layout.progressPct > 0.01 && (
+        <ProgressArc
+          size={layout.size}
+          pct={layout.progressPct}
+          color={accentColor}
+        />
+      )}
+
       {/* Planet body */}
       <mesh
         ref={meshRef}
         onClick={() => { pulseT.current = 1; onSingleClick() }}
         onDoubleClick={onDoubleClick}
-        onPointerOver={() => { hovered.current = true; document.body.style.cursor = 'pointer' }}
-        onPointerOut={() => { hovered.current = false; document.body.style.cursor = 'auto' }}
+        onPointerOver={() => { hovered.current = true; onHoverChange?.(true); document.body.style.cursor = 'pointer' }}
+        onPointerOut={() => { hovered.current = false; onHoverChange?.(false); document.body.style.cursor = 'auto' }}
       >
         <sphereGeometry args={[layout.size, 48, 48]} />
         <planetMaterial
@@ -236,6 +270,7 @@ export default function Planet({
           planetSize={layout.size}
           onDoubleClick={() => onSatDoubleClick(sat.node.id)}
           onSingleClick={() => onSatSingleClick(sat.node.id)}
+          onHoverChange={onHoverChange}
         />
       ))}
 
@@ -243,24 +278,30 @@ export default function Planet({
       <Html
         center
         distanceFactor={14}
-        position={[0, -(layout.size + 0.28), 0]}
+        position={[0, -(layout.size + 0.32), 0]}
         style={{
           color: planetAchieved ? '#ffcc44' : '#e8e8f5',
-          fontSize: '11px',
+          fontSize: '13px',
           fontWeight: 700,
-          fontFamily: "'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif",
-          background: 'rgba(0,0,0,0.62)',
-          padding: '2px 8px',
+          fontFamily: fonts.body,
+          background: 'rgba(0,0,0,0.72)',
+          padding: '3px 9px',
           borderRadius: '10px',
           whiteSpace: 'nowrap',
           pointerEvents: 'none',
           userSelect: 'none',
           letterSpacing: '0.2px',
           textShadow: planetAchieved ? '0 0 10px #ffcc44' : undefined,
+          lineHeight: 1.4,
+          textAlign: 'center',
         }}
       >
-        {layout.node.label}
-        {planetAchieved && ' ✦'}
+        <div>{layout.node.label}{planetAchieved && ' ✦'}</div>
+        {layout.progressLabel && (
+          <div style={{ fontSize: '10px', fontFamily: fonts.display, color: accentColor, opacity: 0.9 }}>
+            {layout.progressLabel}
+          </div>
+        )}
       </Html>
     </group>
   )

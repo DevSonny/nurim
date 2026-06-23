@@ -27,6 +27,7 @@ interface SolarSystemProps {
   onSatDockComplete: (planetId: string) => void
   onSatReturnComplete: () => void
   onAchievementPulse: () => void
+  onHoverChange: (h: boolean) => void
   driftOffset: React.MutableRefObject<THREE.Vector3>
 }
 
@@ -43,6 +44,7 @@ export default function SolarSystem({
   onSatDockComplete,
   onSatReturnComplete,
   onAchievementPulse,
+  onHoverChange,
   driftOffset,
 }: SolarSystemProps) {
   const layout = useSolarLayout()
@@ -89,6 +91,7 @@ export default function SolarSystem({
           onSatDockComplete={() => onSatDockComplete(pl.node.id)}
           onSatReturnComplete={onSatReturnComplete}
           onAchievementPulse={onAchievementPulse}
+          onHoverChange={onHoverChange}
         />
       ))}
     </group>

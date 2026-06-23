@@ -8,6 +8,7 @@ import { OrbitControls, AdaptiveDpr, PerformanceMonitor } from '@react-three/dre
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { getAchievedIds, setAchieved, getNodes } from '@/lib/store'
+import { useIsDesktop } from '@/lib/use-media'
 import AchievementToast from './AchievementToast'
 import SolarSystem from './SolarSystem'
 
@@ -26,6 +27,24 @@ function GalaxyDrift({ driftRef }: { driftRef: React.MutableRefObject<THREE.Vect
   return null
 }
 
+// ── Camera reset when desktop breakpoint changes ───────────────────────────
+
+function CameraInit({
+  isDesktop,
+  orbitRef,
+}: {
+  isDesktop: boolean
+  orbitRef: React.MutableRefObject<any>
+}) {
+  useEffect(() => {
+    const ctrl = orbitRef.current
+    if (!ctrl) return
+    ctrl.object.position.set(0, isDesktop ? 5 : 6, isDesktop ? 13 : 18)
+    ctrl.update()
+  }, [isDesktop, orbitRef])
+  return null
+}
+
 // ── Main scene ─────────────────────────────────────────────────────────────
 
 export default function SolarSystemScene() {
@@ -35,8 +54,11 @@ export default function SolarSystemScene() {
   const [dockingSatId, setDockingSatId] = useState<string | null>(null)
   const [sunReactCount, setSunReactCount] = useState(0)
   const [quality, setQuality] = useState<'high' | 'med' | 'low'>('high')
+  const [hovering, setHovering] = useState(false)
 
   const driftOffset = useRef(new THREE.Vector3(0, 0, 0))
+  const orbitRef = useRef<any>(null)
+  const isDesktop = useIsDesktop()
 
   // Load achieved state from store on mount
   useEffect(() => {
@@ -76,7 +98,7 @@ export default function SolarSystemScene() {
     setPendingId(id)
   }, [pendingId, achievedIds])
 
-  const handleIgniteComplete = useCallback((id: string) => {
+  const handleIgniteComplete = useCallback((_id: string) => {
     setIgnitingPlanetId(null)
   }, [])
 
@@ -98,7 +120,7 @@ export default function SolarSystemScene() {
     setQuality(q => q === 'high' ? 'med' : 'low')
   }, [])
 
-  const bloomIntensity = quality === 'low' ? 0.8 : quality === 'med' ? 1.1 : 1.4
+  const bloomIntensity = quality === 'low' ? 0.8 : quality === 'med' ? 1.1 : isDesktop ? 1.6 : 1.4
   const dpr: [number, number] = quality === 'low' ? [0.8, 1.2] : quality === 'med' ? [1, 1.5] : [1, 2]
 
   return (
@@ -117,14 +139,17 @@ export default function SolarSystemScene() {
         <ambientLight intensity={0.08} />
 
         <OrbitControls
+          ref={orbitRef}
           enablePan={false}
-          minDistance={5}
-          maxDistance={28}
+          minDistance={isDesktop ? 4 : 5}
+          maxDistance={isDesktop ? 22 : 28}
           dampingFactor={0.08}
           enableDamping
-          autoRotate
+          autoRotate={!hovering}
           autoRotateSpeed={0.35}
         />
+
+        <CameraInit isDesktop={isDesktop} orbitRef={orbitRef} />
 
         <GalaxyDrift driftRef={driftOffset} />
 
@@ -135,12 +160,13 @@ export default function SolarSystemScene() {
           sunReactCount={sunReactCount}
           onIgniteComplete={handleIgniteComplete}
           onPlanetDoubleClick={handlePlanetDoubleClick}
-          onPlanetClick={() => {}}
+          onPlanetClick={handlePlanetDoubleClick}
           onSatDoubleClick={handleSatDoubleClick}
-          onSatClick={() => {}}
+          onSatClick={handleSatDoubleClick}
           onSatDockComplete={handleSatDockComplete}
           onSatReturnComplete={handleSatReturnComplete}
           onAchievementPulse={handleAchievementPulse}
+          onHoverChange={setHovering}
           driftOffset={driftOffset}
         />
 

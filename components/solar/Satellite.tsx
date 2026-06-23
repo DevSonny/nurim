@@ -7,7 +7,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-import { colors } from '@/lib/tokens'
+import { colors, fonts } from '@/lib/tokens'
 import type { SatelliteLayout } from '@/lib/use-solar-layout'
 
 const tmpV = new THREE.Vector3()
@@ -21,6 +21,7 @@ interface SatelliteProps {
   planetSize: number
   onDoubleClick: () => void
   onSingleClick: () => void
+  onHoverChange?: (h: boolean) => void  // propagates up to stop autoRotate
 }
 
 type DockPhase = 'orbit' | 'boost' | 'dock' | 'return'
@@ -38,6 +39,7 @@ export default function Satellite({
   planetSize,
   onDoubleClick,
   onSingleClick,
+  onHoverChange,
 }: SatelliteProps) {
   const groupRef   = useRef<THREE.Group>(null)
   const bodyRef    = useRef<THREE.Mesh>(null)
@@ -49,7 +51,10 @@ export default function Satellite({
   const [phase, setPhase] = useState<DockPhase>('orbit')
   const dockT = useRef(0)
   const boostT = useRef(0)
-  const hovered = useRef(false)
+  // hoveredRef: used in useFrame to avoid stale closure
+  const hoveredRef = useRef(false)
+  // hovered state: drives label re-render
+  const [hovered, setHovered] = useState(false)
   const orbitAngle = useRef(layout.phase0)
 
   // Orbit position (planet-local, Z toward sun reference)
@@ -75,8 +80,10 @@ export default function Satellite({
     if (!groupRef.current) return
 
     if (phase === 'orbit') {
-      // Normal orbit revolution
-      orbitAngle.current += layout.orbitSpeed * delta
+      // Pause orbit while hovered so user can click
+      if (!hoveredRef.current) {
+        orbitAngle.current += layout.orbitSpeed * delta
+      }
       const pos = orbitPos(orbitAngle.current)
       groupRef.current.position.copy(pos)
       if (bodyRef.current) bodyRef.current.rotation.y += layout.spinSpeed * delta
@@ -140,6 +147,20 @@ export default function Satellite({
   })
 
   const accentCol = colors.orbits[(layout.node.orbitIdx ?? 0) % colors.orbits.length]
+
+  const handlePointerOver = useCallback(() => {
+    hoveredRef.current = true
+    setHovered(true)
+    onHoverChange?.(true)
+    document.body.style.cursor = 'pointer'
+  }, [onHoverChange])
+
+  const handlePointerOut = useCallback(() => {
+    hoveredRef.current = false
+    setHovered(false)
+    onHoverChange?.(false)
+    document.body.style.cursor = 'auto'
+  }, [onHoverChange])
 
   return (
     <group ref={groupRef}>
@@ -210,38 +231,45 @@ export default function Satellite({
         />
       </mesh>
 
-      {/* Hover label (satellite) */}
-      {hovered.current && (
-        <Html
-          center
-          distanceFactor={14}
-          position={[0, layout.size * 1.4 + 0.2, 0]}
-          style={{
-            color: '#e8e8f5',
-            fontSize: '10px',
-            fontWeight: 600,
-            fontFamily: "'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif",
-            background: 'rgba(0,0,0,0.60)',
-            padding: '2px 6px',
-            borderRadius: '8px',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-        >
-          {layout.node.label}
-        </Html>
-      )}
+      {/* Satellite name label — always visible, emphasised on hover */}
+      <Html
+        center
+        distanceFactor={14}
+        position={[0, layout.size * 1.6 + 0.2, 0]}
+        style={{
+          color: hovered ? '#ffffff' : achieved ? '#ffcc44cc' : '#e8e8f5aa',
+          fontSize: hovered ? '12px' : '11px',
+          fontWeight: 600,
+          fontFamily: fonts.body,
+          background: hovered ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.45)',
+          padding: '2px 6px',
+          borderRadius: '8px',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          transition: 'font-size 0.15s, background 0.15s',
+          textShadow: achieved ? '0 0 8px #ffcc44' : undefined,
+          lineHeight: 1.4,
+          textAlign: 'center',
+        }}
+      >
+        <div>{layout.node.label}{achieved && ' ✦'}</div>
+        {layout.progressLabel && (
+          <div style={{ fontSize: '9px', fontFamily: fonts.display, color: accentCol, opacity: 0.85 }}>
+            {layout.progressLabel}
+          </div>
+        )}
+      </Html>
 
-      {/* Invisible hit target (larger for easier click) */}
+      {/* Invisible hit target — enlarged for easier click */}
       <mesh
         visible={false}
         onClick={() => { onSingleClick() }}
         onDoubleClick={() => { onDoubleClick() }}
-        onPointerOver={() => { hovered.current = true; document.body.style.cursor = 'pointer' }}
-        onPointerOut={() => { hovered.current = false; document.body.style.cursor = 'auto' }}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
       >
-        <sphereGeometry args={[layout.size * 2.2, 8, 8]} />
+        <sphereGeometry args={[Math.max(layout.size * 4, 0.45), 8, 8]} />
         <meshBasicMaterial />
       </mesh>
     </group>

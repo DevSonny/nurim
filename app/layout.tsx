@@ -1,5 +1,12 @@
 import type { Metadata } from 'next'
+import { Space_Grotesk } from 'next/font/google'
 import './globals.css'
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-display',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://nurim.pages.dev'),
@@ -22,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ko">
+    <html lang="ko" className={spaceGrotesk.variable}>
       <body>{children}</body>
     </html>
   )
