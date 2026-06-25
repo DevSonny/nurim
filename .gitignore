@@ -30,3 +30,7 @@ __pycache__/
 .next/
 out/
 tsconfig.tsbuildinfo
+
+# Cloudflare / Vercel build artifacts
+.vercel/
+.wrangler/
