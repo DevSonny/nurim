@@ -58,7 +58,7 @@ export default function PulsePage() {
   let progressData: Progress | null = null
   const targetId = selectedSub ?? selectedOrbit
   if (targetId) {
-    const p = getProgress(nodes as any, pulses as any, targetId)
+    const p = getProgress(nodes, pulses, targetId)
     progressData = p.hasGoal ? p : null
   }
 

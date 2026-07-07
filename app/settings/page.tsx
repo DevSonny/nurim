@@ -7,6 +7,7 @@ import { useGraph } from '@/lib/use-data'
 import { api } from '@/lib/api-client'
 import type { Node } from '@/lib/use-data'
 import { seedPulseData, clearPulseData } from '@/lib/seed-data'
+import type { StoredNode } from '@/lib/aggregate'
 
 const MAX_ORBITS = 8
 const MAX_SUBS_PER_ORBIT = 8
@@ -19,7 +20,7 @@ function DeleteConfirm({
   onConfirm,
   onCancel,
 }: {
-  node: any
+  node: StoredNode
   hasChildren: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -179,7 +180,7 @@ function GoalInput({
   onSave,
   onClose,
 }: {
-  node: any
+  node: StoredNode
   accent: string
   onSave: (goalType: GoalType, target: number, unit: string, period: GoalPeriod) => void
   onClose: () => void
@@ -191,7 +192,7 @@ function GoalInput({
     period: (node.period ?? 'month') as GoalPeriod,
   } : null
 
-  const [goalType, setGoalType] = useState<GoalType>(existing?.goalType ?? 'accumulation')
+  const [goalType, setGoalType] = useState<GoalType>((existing?.goalType as GoalType) ?? 'accumulation')
   const [target, setTarget] = useState(String(existing?.target ?? ''))
   const [unit, setUnit] = useState(existing?.unit ?? '')
   const [period, setPeriod] = useState<GoalPeriod>(existing?.period ?? 'month')
@@ -337,7 +338,7 @@ function GoalInput({
 
 // ── GoalBadge ─────────────────────────────────────────────────────────────────
 
-function GoalBadge({ node, accent, onEdit }: { node: any; accent: string; onEdit: () => void }) {
+function GoalBadge({ node, accent, onEdit }: { node: StoredNode; accent: string; onEdit: () => void }) {
   if (!node.goalType || node.target === undefined) return null
   const periodLabel = node.goalType === 'accumulation'
     ? `/ ${PERIOD_LABEL[(node.period ?? 'month') as GoalPeriod]}`
@@ -357,7 +358,7 @@ function GoalBadge({ node, accent, onEdit }: { node: any; accent: string; onEdit
       onClick={onEdit}
     >
       <span style={{ fontSize: 11, color: `${accent}cc` }}>
-        🎯 {node.target}{node.unit} {periodLabel}
+        목표: {node.target}{node.unit} {periodLabel}
       </span>
     </div>
   )
@@ -370,7 +371,7 @@ export default function SettingsPage() {
   const { nodes, pulses, mutate, isLoading } = useGraph()
   const [addingOrbit, setAddingOrbit] = useState(false)
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null)
-  const [deletingNode, setDeletingNode] = useState<any | null>(null)
+  const [deletingNode, setDeletingNode] = useState<StoredNode | null>(null)
   const [settingGoalFor, setSettingGoalFor] = useState<string | null>(null)
 
   if (isLoading) return null
@@ -542,7 +543,7 @@ export default function SettingsPage() {
                     }}
                     title="목표 설정"
                   >
-                    🎯
+                    목표
                   </button>
                   <button
                     onClick={() => setDeletingNode(orbit)}
@@ -619,7 +620,7 @@ export default function SettingsPage() {
                             </span>
                             {sub.goalType && (
                               <span style={{ fontSize: '10px', color: `${accent}88` }}>
-                                🎯{sub.target}{sub.unit}
+                                목표: {sub.target}{sub.unit}
                               </span>
                             )}
                             <button

@@ -3,31 +3,14 @@
 // All date arithmetic uses local timezone.
 
 
+import { type InferSelectModel } from 'drizzle-orm'
+import { nodes, pulses } from './db/schema'
+
 export type PulseKind = 'score' | 'time' | 'check' | 'money' | 'progress'
 
-export interface StoredNode {
-  id: string
-  type: 'core' | 'orbit' | 'sub'
-  label: string
-  orbitIdx: number
-  parentId?: string
-  createdAt: number
-  achievedAt?: number
-  goalType?: 'accumulation' | 'repetition'
-  target?: number
-  unit?: string
-  period?: 'day' | 'week' | 'month'
-}
+export type StoredNode = InferSelectModel<typeof nodes>
+export type Pulse = InferSelectModel<typeof pulses>
 
-export interface Pulse {
-  id: string
-  nodeId: string
-  date: string
-  value: number
-  kind?: PulseKind
-  memo?: string
-  createdAt: number
-}
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -69,11 +52,11 @@ export function getProgress(nodes: StoredNode[], pulses: Pulse[], nodeId: string
   if (!node) return NO_PROGRESS
 
   // Node has explicit goal
-  if (node.goalType && node.target !== undefined && node.target > 0) {
+  if (node.goalType && node.target != null && node.target > 0) {
     const nodePulses = pulses.filter(p => p.nodeId === nodeId)
     const target = node.target
     const unit = node.unit ?? ''
-    const period = node.period ?? 'month'
+    const period = (node.period ?? 'month') as 'day' | 'week' | 'month'
 
     if (node.goalType === 'accumulation') {
       const start = getPeriodStart(period)
@@ -93,7 +76,7 @@ export function getProgress(nodes: StoredNode[], pulses: Pulse[], nodeId: string
 
   // Orbit rollup: average of sub-nodes that have goals
   if (node.type === 'orbit') {
-    const subs = nodes.filter(n => n.parentId === nodeId && n.goalType && n.target !== undefined && n.target > 0)
+    const subs = nodes.filter(n => n.parentId === nodeId && n.goalType && n.target != null && n.target > 0)
     if (subs.length > 0) {
       const progresses = subs.map(s => getProgress(nodes, pulses, s.id))
       const avgPct = progresses.reduce((sum, p) => sum + p.pct, 0) / subs.length
@@ -144,7 +127,7 @@ export function getNodeKind(nodes: StoredNode[], pulses: Pulse[], nodeId: string
   const nodePulses = pulses.filter(p => p.nodeId === nodeId)
   const kindCounts: Partial<Record<PulseKind, number>> = {}
   for (const p of nodePulses) {
-    if (p.kind) kindCounts[p.kind] = (kindCounts[p.kind] ?? 0) + 1
+    if (p.kind) kindCounts[p.kind as PulseKind] = (kindCounts[p.kind as PulseKind] ?? 0) + 1
   }
   let best: PulseKind = 'check'
   let bestCount = 0
@@ -196,7 +179,7 @@ export function getCategoryTotals(
 
     const byKind = new Map<PulseKind, number[]>()
     for (const p of scopedPulses) {
-      const k: PulseKind = p.kind ?? 'check'
+      const k = (p.kind as PulseKind) ?? 'check'
       if (!byKind.has(k)) byKind.set(k, [])
       byKind.get(k)!.push(p.value)
     }
@@ -230,7 +213,7 @@ export function getSeries(
   if (metric === 'kind') {
     const kindCounts: Partial<Record<PulseKind, number>> = {}
     for (const p of allPulses) {
-      if (p.kind) kindCounts[p.kind] = (kindCounts[p.kind] ?? 0) + 1
+      if (p.kind) kindCounts[p.kind as PulseKind] = (kindCounts[p.kind as PulseKind] ?? 0) + 1
     }
     let bestCount = 0
     for (const [k, cnt] of Object.entries(kindCounts)) {

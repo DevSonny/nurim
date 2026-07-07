@@ -38,16 +38,16 @@ export default function DashboardPage() {
   const coreNode = nodes.find(n => n.type === 'core') ?? null
   const achievedIds = new Set(nodes.filter(n => n.achievedAt).map(n => n.id))
 
-  const streak = getStreak(pulses as any)
-  const todayCount = getTodayPulseCount(pulses as any)
-  const weekRate = getThisWeekRate(pulses as any)
+  const streak = getStreak(pulses)
+  const todayCount = getTodayPulseCount(pulses)
+  const weekRate = getThisWeekRate(pulses)
 
   const progressItems = [...orbitNodes, ...subNodes]
-    .map(n => ({ node: n, prog: getProgress(nodes as any, pulses as any, n.id) }))
+    .map(n => ({ node: n, prog: getProgress(nodes, pulses, n.id) }))
     .filter(({ prog }) => prog.hasGoal)
 
   const progressMap: Record<string, Progress> = {}
-  nodes.forEach(n => { progressMap[n.id] = getProgress(nodes as any, pulses as any, n.id) })
+  nodes.forEach(n => { progressMap[n.id] = getProgress(nodes, pulses, n.id) })
 
   return (
     <main
@@ -75,9 +75,9 @@ export default function DashboardPage() {
           >
               <MandalaView
               ref={mandalaRef}
-              core={coreNode as any}
-              orbits={orbitNodes as any}
-              subs={subNodes as any}
+              core={coreNode}
+              orbits={orbitNodes}
+              subs={subNodes}
               progressMap={progressMap}
               achievedIds={achievedIds}
             />

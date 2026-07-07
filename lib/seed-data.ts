@@ -2,7 +2,9 @@
 // 테스트용 샘플 Pulse 데이터 주입.
 // 최근 90일간 현실적인 패턴으로 생성.
 
+import { type InferSelectModel } from 'drizzle-orm'
 import { api } from './api-client'
+import type { StoredNode, Pulse } from './aggregate'
 import type { PulseKind } from './aggregate'
 
 function dateOffset(daysAgo: number): string {
@@ -20,7 +22,7 @@ function fakeRand(seed: number): number {
   return x - Math.floor(x)
 }
 
-export async function seedPulseData(nodes: any[]): Promise<void> {
+export async function seedPulseData(nodes: StoredNode[]): Promise<void> {
   const orbitNodes = nodes.filter(n => n.type === 'orbit')
   const subNodes   = nodes.filter(n => n.type === 'sub')
 
@@ -107,7 +109,7 @@ export async function seedPulseData(nodes: any[]): Promise<void> {
   await Promise.all(promises)
 }
 
-export async function clearPulseData(pulses: any[]): Promise<void> {
+export async function clearPulseData(pulses: Pulse[]): Promise<void> {
   const promises = pulses.map(p => api.pulses.delete(p.id))
   await Promise.all(promises)
 }

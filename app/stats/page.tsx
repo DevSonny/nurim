@@ -14,7 +14,7 @@ import {
   formatValue,
   getThisWeekRate,
 } from '@/lib/aggregate'
-import type { CategoryTotal } from '@/lib/aggregate'
+import type { CategoryTotal, StoredNode } from '@/lib/aggregate'
 import { useIsDesktop } from '@/lib/use-media'
 
 type Timeframe = 'day' | 'week' | 'month'
@@ -43,28 +43,28 @@ export default function StatsPage() {
     if (tab === '개요') return null
     const orbit = orbits.find(o => o.label === tab)
     if (!orbit) return null
-    return getOrbitAndSubIds(nodes as any, orbit.id)
+    return getOrbitAndSubIds(nodes, orbit.id)
   })()
 
   const metric = tabIds ? 'kind' : 'count'
   const seriesIds = tabIds ?? nodes.map(n => n.id)
   const count = SERIES_COUNT[timeframe]
-  const series = getSeries(pulses as any, seriesIds, timeframe, count, { metric })
+  const series = getSeries(pulses, seriesIds, timeframe, count, { metric })
   const seriesUnit = series[0]?.unit ?? '회'
 
-  const streak = tabIds ? getStreak(pulses as any, tabIds[0]) : getStreak(pulses as any)
-  const activityRate = getActivityRate(pulses as any, tabIds)
-  const bestDay = getBestDayOfWeek(pulses as any, tabIds)
-  const thisWeekRate = getThisWeekRate(pulses as any)
-  const heatmap = getHeatmap(pulses as any, tabIds ?? nodes.map(n => n.id).filter(id => {
+  const streak = tabIds ? getStreak(pulses, tabIds[0]) : getStreak(pulses)
+  const activityRate = getActivityRate(pulses, tabIds)
+  const bestDay = getBestDayOfWeek(pulses, tabIds)
+  const thisWeekRate = getThisWeekRate(pulses)
+  const heatmap = getHeatmap(pulses, tabIds ?? nodes.map(n => n.id).filter(id => {
     const node = nodes.find(n => n.id === id)
     return node?.type !== 'core'
   }))
 
-  const categoryTotalsAll = getCategoryTotals(nodes as any, pulses as any, tabIds, 'all')
-  const categoryTotalsMonth = getCategoryTotals(nodes as any, pulses as any, tabIds, 'month')
+  const categoryTotalsAll = getCategoryTotals(nodes, pulses, tabIds, 'all')
+  const categoryTotalsMonth = getCategoryTotals(nodes, pulses, tabIds, 'month')
 
-  const trendSeries = getSeries(pulses as any, seriesIds, 'month', 6, { metric })
+  const trendSeries = getSeries(pulses, seriesIds, 'month', 6, { metric })
 
   return (
     <main
@@ -348,7 +348,7 @@ function BarChart({ series, accent, timeframe }: {
   )
 }
 
-function CategoryList({ totals, orbits }: { totals: CategoryTotal[]; orbits: any[] }) {
+function CategoryList({ totals, orbits }: { totals: CategoryTotal[]; orbits: StoredNode[] }) {
   const EXPENSE_COLOR = '#ff4466'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -461,7 +461,7 @@ function ScoreRow({ label, val, accent }: { label: string; val: string; accent: 
   )
 }
 
-function MonthTotalsGrid({ totals, orbits }: { totals: CategoryTotal[]; orbits: any[] }) {
+function MonthTotalsGrid({ totals, orbits }: { totals: CategoryTotal[]; orbits: StoredNode[] }) {
   const EXPENSE_COLOR = '#ff4466'
   return (
     <div

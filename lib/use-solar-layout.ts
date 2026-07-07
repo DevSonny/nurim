@@ -67,7 +67,7 @@ export function useSolarLayout(): SolarLayout {
       const spinSpeed   = 0.28 + seed * 0.44
 
       // Progress-based size scaling — grows with accumulated pulses
-      const prog = getProgress(nodes as any, pulses as any, node.id)
+      const prog = getProgress(nodes, pulses, node.id)
       const baseSize = nodeBaseRadius.orbit * (0.82 + seed * 0.42)
       const size     = baseSize * (1 + 0.35 * prog.pct)
       const progressLabel = prog.hasGoal
@@ -78,7 +78,7 @@ export function useSolarLayout(): SolarLayout {
 
       const satellites: SatelliteLayout[] = mySubNodes.map((sub, si) => {
         const ss = h01(sub.id)
-        const subProg = getProgress(nodes as any, pulses as any, sub.id)
+        const subProg = getProgress(nodes, pulses, sub.id)
         const subBaseSize = nodeBaseRadius.sub * (1.1 + ss * 0.3)
         const subSize = subBaseSize * (1 + 0.35 * subProg.pct)
         return {
