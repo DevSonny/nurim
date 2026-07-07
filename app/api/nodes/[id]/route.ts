@@ -13,10 +13,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const resolvedParams = await params
   const { id } = resolvedParams
   const body = await req.json()
-  const { label, type, parentId, orbitIdx, target, unit, period, goalType, achievedAt } = body
+  const { target, unit, period, goalType } = body
 
   const [updatedNode] = await db.update(nodes)
-    .set({ label, type, parentId, orbitIdx, target, unit, period, goalType, achievedAt })
+    .set({ target, unit, period, goalType })
     .where(and(eq(nodes.id, id), eq(nodes.userId, session.user.id)))
     .returning()
 
@@ -36,15 +36,21 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const resolvedParams = await params
   const { id } = resolvedParams
 
+  const [nodeToDelete] = await db.select().from(nodes).where(and(eq(nodes.id, id), eq(nodes.userId, session.user.id)))
+  
+  if (!nodeToDelete) {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+  }
+
+  if (nodeToDelete.type === 'core') {
+    return new Response("Cannot delete core node", { status: 400 })
+  }
+
   const [deletedNode] = await db.delete(nodes)
     .where(and(eq(nodes.id, id), eq(nodes.userId, session.user.id)))
     .returning()
 
-  if (!deletedNode) {
-    return NextResponse.json({ error: 'Not Found' }, { status: 404 })
-  }
-
-  if (deletedNode.type === 'orbit') {
+  if (deletedNode?.type === 'orbit') {
     await db.delete(nodes).where(and(eq(nodes.parentId, id), eq(nodes.userId, session.user.id)))
   }
 

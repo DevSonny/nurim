@@ -29,7 +29,12 @@ export default function StatsPage() {
   const [timeframe, setTimeframe] = useState<Timeframe>('week')
 
   if (isError) return <div>Error loading data</div>
-  if (isLoading) return null
+  if (isLoading) return (
+    <main style={{ minHeight: '100vh', background: colors.ground, color: colors.text, paddingBottom: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      Loading...
+      <BottomNav />
+    </main>
+  )
 
   const orbits = nodes.filter(n => n.type === 'orbit')
   const tabs = ['개요', ...orbits.map(o => o.label)]

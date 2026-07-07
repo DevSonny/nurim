@@ -43,7 +43,12 @@ export default function PulsePage() {
   const [memo, setMemo] = useState('')
 
   if (isError) return <div>Error loading data</div>
-  if (isLoading) return null
+  if (isLoading) return (
+    <main style={{ minHeight: '100vh', background: colors.ground, color: colors.text, paddingBottom: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      Loading...
+      <BottomNav />
+    </main>
+  )
 
   const ORBIT_NODES = nodes.filter(n => n.type === 'orbit')
   const SUB_NODES = nodes.filter(n => n.type === 'sub')

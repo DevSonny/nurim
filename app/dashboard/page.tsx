@@ -32,7 +32,12 @@ export default function DashboardPage() {
   const dateLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`
 
   if (isError) return <div>Error loading data</div>
-  if (isLoading) return null
+  if (isLoading) return (
+    <main style={{ position: 'relative', height: '100vh', background: colors.ground, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.text }}>Loading...</div>
+      <BottomNav />
+    </main>
+  )
 
   const orbitNodes = nodes.filter(n => n.type === 'orbit')
   const subNodes = nodes.filter(n => n.type === 'sub')
