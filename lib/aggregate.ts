@@ -2,8 +2,32 @@
 // Aggregate functions over Pulse data.
 // All date arithmetic uses local timezone.
 
-import { getPulses, getNodes } from './store'
-import type { PulseKind } from './store'
+
+export type PulseKind = 'score' | 'time' | 'check' | 'money' | 'progress'
+
+export interface StoredNode {
+  id: string
+  type: 'core' | 'orbit' | 'sub'
+  label: string
+  orbitIdx: number
+  parentId?: string
+  createdAt: number
+  achievedAt?: number
+  goalType?: 'accumulation' | 'repetition'
+  target?: number
+  unit?: string
+  period?: 'day' | 'week' | 'month'
+}
+
+export interface Pulse {
+  id: string
+  nodeId: string
+  date: string
+  value: number
+  kind?: PulseKind
+  memo?: string
+  createdAt: number
+}
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -40,28 +64,27 @@ export interface Progress {
 
 const NO_PROGRESS: Progress = { current: 0, target: 0, unit: '', pct: 0, hasGoal: false }
 
-export function getProgress(nodeId: string): Progress {
-  const nodes = getNodes()
+export function getProgress(nodes: StoredNode[], pulses: Pulse[], nodeId: string): Progress {
   const node = nodes.find(n => n.id === nodeId)
   if (!node) return NO_PROGRESS
 
   // Node has explicit goal
   if (node.goalType && node.target !== undefined && node.target > 0) {
-    const pulses = getPulses(nodeId)
+    const nodePulses = pulses.filter(p => p.nodeId === nodeId)
     const target = node.target
     const unit = node.unit ?? ''
     const period = node.period ?? 'month'
 
     if (node.goalType === 'accumulation') {
       const start = getPeriodStart(period)
-      const current = pulses
+      const current = nodePulses
         .filter(p => p.date >= start)
         .reduce((sum, p) => sum + p.value, 0)
       return { current: Math.round(current * 10) / 10, target, unit, pct: Math.min(1, current / target), hasGoal: true }
     } else {
       // repetition: today
       const today = toDateStr()
-      const current = pulses
+      const current = nodePulses
         .filter(p => p.date === today)
         .reduce((sum, p) => sum + p.value, 0)
       return { current: Math.round(current * 10) / 10, target, unit, pct: Math.min(1, current / target), hasGoal: true }
@@ -72,7 +95,7 @@ export function getProgress(nodeId: string): Progress {
   if (node.type === 'orbit') {
     const subs = nodes.filter(n => n.parentId === nodeId && n.goalType && n.target !== undefined && n.target > 0)
     if (subs.length > 0) {
-      const progresses = subs.map(s => getProgress(s.id))
+      const progresses = subs.map(s => getProgress(nodes, pulses, s.id))
       const avgPct = progresses.reduce((sum, p) => sum + p.pct, 0) / subs.length
       return { current: Math.round(avgPct * 100), target: 100, unit: '%', pct: avgPct, hasGoal: true }
     }
@@ -117,10 +140,10 @@ export function formatValue(value: number, kind: PulseKind): string {
   return `${Math.round(value)} ${pulseUnit(kind)}`
 }
 
-export function getNodeKind(nodeId: string): PulseKind {
-  const pulses = getPulses(nodeId)
+export function getNodeKind(nodes: StoredNode[], pulses: Pulse[], nodeId: string): PulseKind {
+  const nodePulses = pulses.filter(p => p.nodeId === nodeId)
   const kindCounts: Partial<Record<PulseKind, number>> = {}
-  for (const p of pulses) {
+  for (const p of nodePulses) {
     if (p.kind) kindCounts[p.kind] = (kindCounts[p.kind] ?? 0) + 1
   }
   let best: PulseKind = 'check'
@@ -129,7 +152,7 @@ export function getNodeKind(nodeId: string): PulseKind {
     if ((cnt ?? 0) > bestCount) { bestCount = cnt ?? 0; best = k as PulseKind }
   }
   if (bestCount === 0) {
-    const node = getNodes().find(n => n.id === nodeId)
+    const node = nodes.find(n => n.id === nodeId)
     const u = node?.unit ?? ''
     if (u.includes('분') || u.includes('h')) return 'time'
     if (u.includes('원') || u.includes('₩')) return 'money'
@@ -152,27 +175,27 @@ export interface CategoryTotal {
 }
 
 export function getCategoryTotals(
+  nodes: StoredNode[], pulses: Pulse[],
   ids: string[] | null,
   range: 'month' | 'all',
 ): CategoryTotal[] {
-  const nodes = getNodes()
   const orbits = nodes.filter(n => n.type === 'orbit')
   const now = new Date()
   const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const results: CategoryTotal[] = []
 
   for (const orbit of orbits) {
-    const orbitAndSubIds = getOrbitAndSubIds(orbit.id)
+    const orbitAndSubIds = getOrbitAndSubIds(nodes, orbit.id)
     const scopedIds = ids ? orbitAndSubIds.filter(id => ids.includes(id)) : orbitAndSubIds
     if (scopedIds.length === 0) continue
 
-    const pulses = scopedIds.flatMap(id => getPulses(id)).filter(p =>
+    const scopedPulses = pulses.filter(p => scopedIds.includes(p.nodeId)).filter(p =>
       range === 'month' ? p.date.startsWith(monthStr) : true
     )
-    if (pulses.length === 0) continue
+    if (scopedPulses.length === 0) continue
 
     const byKind = new Map<PulseKind, number[]>()
-    for (const p of pulses) {
+    for (const p of scopedPulses) {
       const k: PulseKind = p.kind ?? 'check'
       if (!byKind.has(k)) byKind.set(k, [])
       byKind.get(k)!.push(p.value)
@@ -192,13 +215,14 @@ export function getCategoryTotals(
 // ── Series (time-series for charts) ──────────────────────────────────────────
 
 export function getSeries(
+  pulses: Pulse[],
   nodeIdOrIds: string | string[],
   granularity: 'day' | 'week' | 'month',
   count: number,
   opts?: { metric?: 'count' | 'kind' },
 ): { label: string; value: number; unit: string }[] {
   const ids = Array.isArray(nodeIdOrIds) ? nodeIdOrIds : [nodeIdOrIds]
-  const allPulses = ids.flatMap(id => getPulses(id))
+  const allPulses = pulses.filter(p => ids.includes(p.nodeId))
   const metric = opts?.metric ?? 'kind'
 
   // Determine dominant kind across all pulses
@@ -270,11 +294,11 @@ export function getSeries(
 
 /** Consecutive days ending today (or yesterday if no pulse today) with ≥1 pulse.
  *  If nodeId is null, counts any pulse across all nodes. */
-export function getStreak(nodeId?: string | null): number {
-  const pulses = nodeId ? getPulses(nodeId) : getPulses()
-  if (pulses.length === 0) return 0
+export function getStreak(pulses: Pulse[], nodeId?: string | null): number {
+  const targetPulses = nodeId ? pulses.filter(p => p.nodeId === nodeId) : pulses
+  if (targetPulses.length === 0) return 0
 
-  const datesWithPulses = new Set(pulses.map(p => p.date))
+  const datesWithPulses = new Set(targetPulses.map(p => p.date))
   const now = new Date()
 
   // Start from today; if no pulse today, start from yesterday
@@ -298,18 +322,18 @@ export function getStreak(nodeId?: string | null): number {
 
 // ── Total ─────────────────────────────────────────────────────────────────────
 
-export function getTotal(nodeId?: string | null): number {
-  const pulses = nodeId ? getPulses(nodeId) : getPulses()
-  return pulses.reduce((sum, p) => sum + p.value, 0)
+export function getTotal(pulses: Pulse[], nodeId?: string | null): number {
+  const targetPulses = nodeId ? pulses.filter(p => p.nodeId === nodeId) : pulses
+  return targetPulses.reduce((sum, p) => sum + p.value, 0)
 }
 
 // ── Activity rate (% of days active since first pulse) ───────────────────────
 
-export function getActivityRate(ids: string[] | null = null): number {
-  const pulses = ids ? ids.flatMap(id => getPulses(id)) : getPulses()
-  if (pulses.length === 0) return 0
+export function getActivityRate(pulses: Pulse[], ids: string[] | null = null): number {
+  const targetPulses = ids ? pulses.filter(p => ids.includes(p.nodeId)) : pulses
+  if (targetPulses.length === 0) return 0
 
-  const sortedDates = [...new Set(pulses.map(p => p.date))].sort()
+  const sortedDates = [...new Set(targetPulses.map(p => p.date))].sort()
   const firstDate = sortedDates[0]
   const now = new Date()
   const daysSinceFirst = Math.max(
@@ -323,12 +347,12 @@ export function getActivityRate(ids: string[] | null = null): number {
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토']
 
-export function getBestDayOfWeek(ids: string[] | null = null): string {
-  const pulses = ids ? ids.flatMap(id => getPulses(id)) : getPulses()
-  if (pulses.length === 0) return '-'
+export function getBestDayOfWeek(pulses: Pulse[], ids: string[] | null = null): string {
+  const targetPulses = ids ? pulses.filter(p => ids.includes(p.nodeId)) : pulses
+  if (targetPulses.length === 0) return '-'
 
   const dayCounts = Array(7).fill(0)
-  pulses.forEach(p => {
+  targetPulses.forEach(p => {
     const dow = new Date(p.date).getDay()
     dayCounts[dow]++
   })
@@ -339,15 +363,14 @@ export function getBestDayOfWeek(ids: string[] | null = null): string {
 
 // ── Dashboard stats ───────────────────────────────────────────────────────────
 
-export function getTodayPulseCount(): number {
+export function getTodayPulseCount(pulses: Pulse[]): number {
   const today = toDateStr()
-  return getPulses().filter(p => p.date === today).length
+  return pulses.filter(p => p.date === today).length
 }
 
-export function getThisWeekRate(): number {
+export function getThisWeekRate(pulses: Pulse[]): number {
   const weekStart = getPeriodStart('week')
-  const allPulses = getPulses()
-  const pulsedDates = new Set(allPulses.filter(p => p.date >= weekStart).map(p => p.date))
+  const pulsedDates = new Set(pulses.filter(p => p.date >= weekStart).map(p => p.date))
 
   const now = new Date()
   const weekStartDate = new Date(weekStart)
@@ -358,8 +381,7 @@ export function getThisWeekRate(): number {
 
 // ── Orbit helper ──────────────────────────────────────────────────────────────
 
-export function getOrbitAndSubIds(orbitId: string): string[] {
-  const nodes = getNodes()
+export function getOrbitAndSubIds(nodes: StoredNode[], orbitId: string): string[] {
   const subs = nodes.filter(n => n.parentId === orbitId)
   return [orbitId, ...subs.map(n => n.id)]
 }
@@ -367,16 +389,17 @@ export function getOrbitAndSubIds(orbitId: string): string[] {
 // ── Heatmap (weeksBack × 7 days) — 0-1 values ────────────────────────────────
 
 export function getHeatmap(
+  pulses: Pulse[],
   nodeIdOrIds: string | string[],
   weeksBack = 7,
 ): number[][] {
   const ids = Array.isArray(nodeIdOrIds) ? nodeIdOrIds : [nodeIdOrIds]
-  const pulses = ids.flatMap(id => getPulses(id))
+  const targetPulses = pulses.filter(p => ids.includes(p.nodeId))
   const now = new Date()
 
   // Find max daily value for normalization
   const dailyTotals: Record<string, number> = {}
-  pulses.forEach(p => {
+  targetPulses.forEach(p => {
     dailyTotals[p.date] = (dailyTotals[p.date] ?? 0) + p.value
   })
   const maxVal = Math.max(1, ...Object.values(dailyTotals))
