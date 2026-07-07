@@ -3,18 +3,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/ui/BottomNav'
 import { colors, fonts, fontSize } from '@/lib/tokens'
-import {
-  getNodes,
-  addOrbit,
-  addSub,
-  deleteNode,
-  setGoal,
-  clearGoal,
-  MAX_ORBITS,
-  MAX_SUBS_PER_ORBIT,
-} from '@/lib/store'
-import type { StoredNode } from '@/lib/store'
+import { useGraph } from '@/lib/use-data'
+import { api } from '@/lib/api-client'
+import type { Node } from '@/lib/use-data'
 import { seedPulseData, clearPulseData } from '@/lib/seed-data'
+
+const MAX_ORBITS = 8
+const MAX_SUBS_PER_ORBIT = 8
 
 // ── DeleteConfirm modal ───────────────────────────────────────────────────────
 
@@ -24,7 +19,7 @@ function DeleteConfirm({
   onConfirm,
   onCancel,
 }: {
-  node: StoredNode
+  node: any
   hasChildren: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -184,7 +179,7 @@ function GoalInput({
   onSave,
   onClose,
 }: {
-  node: StoredNode
+  node: any
   accent: string
   onSave: (goalType: GoalType, target: number, unit: string, period: GoalPeriod) => void
   onClose: () => void
@@ -342,7 +337,7 @@ function GoalInput({
 
 // ── GoalBadge ─────────────────────────────────────────────────────────────────
 
-function GoalBadge({ node, accent, onEdit }: { node: StoredNode; accent: string; onEdit: () => void }) {
+function GoalBadge({ node, accent, onEdit }: { node: any; accent: string; onEdit: () => void }) {
   if (!node.goalType || node.target === undefined) return null
   const periodLabel = node.goalType === 'accumulation'
     ? `/ ${PERIOD_LABEL[(node.period ?? 'month') as GoalPeriod]}`
@@ -372,34 +367,36 @@ function GoalBadge({ node, accent, onEdit }: { node: StoredNode; accent: string;
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [nodes, setNodes] = useState<StoredNode[]>([])
+  const { nodes, pulses, mutate, isLoading } = useGraph()
   const [addingOrbit, setAddingOrbit] = useState(false)
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null)
-  const [deletingNode, setDeletingNode] = useState<StoredNode | null>(null)
+  const [deletingNode, setDeletingNode] = useState<any | null>(null)
   const [settingGoalFor, setSettingGoalFor] = useState<string | null>(null)
 
-  const reload = () => setNodes(getNodes())
-  useEffect(() => { reload() }, [])
+  if (isLoading) return null
 
   const orbits = nodes.filter(n => n.type === 'orbit')
 
   const handleAddOrbit = (label: string): boolean => {
-    const result = addOrbit(label)
-    if (result) { reload(); return true }
-    return false
+    if (orbits.length >= MAX_ORBITS) return false
+    api.nodes.create({ type: 'orbit', label, orbitIdx: orbits.length }).then(() => mutate())
+    return true
   }
 
   const handleAddSub = (parentId: string) => (label: string): boolean => {
-    const result = addSub(parentId, label)
-    if (result) { reload(); return true }
-    return false
+    const subs = nodes.filter(n => n.type === 'sub' && n.parentId === parentId)
+    if (subs.length >= MAX_SUBS_PER_ORBIT) return false
+    const parentOrbit = nodes.find(n => n.id === parentId)
+    api.nodes.create({ type: 'sub', label, parentId, orbitIdx: parentOrbit?.orbitIdx ?? 0 }).then(() => mutate())
+    return true
   }
 
   const handleDeleteConfirm = () => {
     if (!deletingNode) return
-    deleteNode(deletingNode.id)
-    reload()
-    setDeletingNode(null)
+    api.nodes.delete(deletingNode.id).then(() => {
+      mutate()
+      setDeletingNode(null)
+    })
   }
 
   const handleSaveGoal = (
@@ -409,15 +406,17 @@ export default function SettingsPage() {
     unit: string,
     period: GoalPeriod,
   ) => {
-    setGoal(id, { goalType, target, unit: unit || undefined, period })
-    reload()
-    setSettingGoalFor(null)
+    api.nodes.update(id, { goalType, target, unit: unit || undefined, period }).then(() => {
+      mutate()
+      setSettingGoalFor(null)
+    })
   }
 
   const handleClearGoal = (id: string) => {
-    clearGoal(id)
-    reload()
-    setSettingGoalFor(null)
+    api.nodes.update(id, { goalType: null, target: null, unit: null, period: null }).then(() => {
+      mutate()
+      setSettingGoalFor(null)
+    })
   }
 
   const deletingNodeHasChildren =
@@ -797,7 +796,7 @@ export default function SettingsPage() {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
-            onClick={() => { seedPulseData(); reload() }}
+            onClick={() => { seedPulseData(nodes).then(() => mutate()) }}
             style={{
               flex: 1,
               padding: '9px',
@@ -814,7 +813,7 @@ export default function SettingsPage() {
             샘플 90일 주입
           </button>
           <button
-            onClick={() => { clearPulseData(); reload() }}
+            onClick={() => { clearPulseData(pulses).then(() => mutate()) }}
             style={{
               flex: 1,
               padding: '9px',

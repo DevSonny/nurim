@@ -2,8 +2,8 @@
 // 테스트용 샘플 Pulse 데이터 주입.
 // 최근 90일간 현실적인 패턴으로 생성.
 
-import { getNodes, addPulse, setGoal, clearPulses } from './store'
-import type { PulseKind } from './store'
+import { api } from './api-client'
+import type { PulseKind } from './aggregate'
 
 function dateOffset(daysAgo: number): string {
   const d = new Date()
@@ -20,37 +20,32 @@ function fakeRand(seed: number): number {
   return x - Math.floor(x)
 }
 
-export function seedPulseData(): void {
-  const nodes = getNodes()
+export async function seedPulseData(nodes: any[]): Promise<void> {
   const orbitNodes = nodes.filter(n => n.type === 'orbit')
   const subNodes   = nodes.filter(n => n.type === 'sub')
 
   // Set goals on default nodes if missing
-  const byId = Object.fromEntries(nodes.map(n => [n.id, n]))
-
-  // 러닝 → accumulation 100km/월
   const running = subNodes.find(n => n.label === '러닝') ?? subNodes[0]
   if (running && !running.goalType) {
-    setGoal(running.id, { goalType: 'accumulation', target: 100, unit: 'km', period: 'month' })
+    await api.nodes.update(running.id, { goalType: 'accumulation', target: 100, unit: 'km', period: 'month' })
   }
 
-  // 코딩 → repetition 90분/일
   const coding = subNodes.find(n => n.label === '코딩') ?? subNodes[1]
   if (coding && !coding.goalType) {
-    setGoal(coding.id, { goalType: 'repetition', target: 90, unit: '분', period: 'day' })
+    await api.nodes.update(coding.id, { goalType: 'repetition', target: 90, unit: '분', period: 'day' })
   }
 
-  // 영어 → repetition 점수 8/일
   const english = subNodes.find(n => n.label === '영어')
   if (english && !english.goalType) {
-    setGoal(english.id, { goalType: 'repetition', target: 8, unit: '점', period: 'day' })
+    await api.nodes.update(english.id, { goalType: 'repetition', target: 8, unit: '점', period: 'day' })
   }
 
-  // 투자 → accumulation 500000원/월
   const invest = subNodes.find(n => n.label === '투자')
   if (invest && !invest.goalType) {
-    setGoal(invest.id, { goalType: 'accumulation', target: 500000, unit: '원', period: 'month' })
+    await api.nodes.update(invest.id, { goalType: 'accumulation', target: 500000, unit: '원', period: 'month' })
   }
+
+  const promises: Promise<any>[] = []
 
   // Generate 90 days of pulses
   let idx = 0
@@ -68,7 +63,7 @@ export function seedPulseData(): void {
         const km = isWeekend
           ? 6 + Math.round(fakeRand(idx++) * 8)
           : 3 + Math.round(fakeRand(idx++) * 5)
-        addPulse(running.id, km, date, undefined, 'check' as PulseKind)
+        promises.push(api.pulses.create({ nodeId: running.id, value: km, date, kind: 'check' as PulseKind }))
       }
     }
 
@@ -76,7 +71,7 @@ export function seedPulseData(): void {
     if (coding) {
       if (dow !== 0 && fakeRand(idx++) > 0.25) {
         const mins = 30 + Math.round(fakeRand(idx++) * 120)
-        addPulse(coding.id, mins, date, undefined, 'time' as PulseKind)
+        promises.push(api.pulses.create({ nodeId: coding.id, value: mins, date, kind: 'time' as PulseKind }))
       }
     }
 
@@ -84,7 +79,7 @@ export function seedPulseData(): void {
     if (english) {
       if (fakeRand(idx++) > 0.3) {
         const score = 5 + Math.round(fakeRand(idx++) * 5)
-        addPulse(english.id, score, date, undefined, 'score' as PulseKind)
+        promises.push(api.pulses.create({ nodeId: english.id, value: score, date, kind: 'score' as PulseKind }))
       }
     }
 
@@ -94,7 +89,7 @@ export function seedPulseData(): void {
         const amounts = [50000, 100000, 200000, 500000]
         const amount = amounts[Math.floor(fakeRand(idx++) * amounts.length)]
         const isExpense = fakeRand(idx++) < 0.2
-        addPulse(invest.id, isExpense ? -amount : amount, date, undefined, 'money' as PulseKind)
+        promises.push(api.pulses.create({ nodeId: invest.id, value: isExpense ? -amount : amount, date, kind: 'money' as PulseKind }))
       }
     }
 
@@ -103,12 +98,16 @@ export function seedPulseData(): void {
       const mySubIds = subNodes.filter(s => s.parentId === orbit.id).map(s => s.id)
       const hasSubPulses = mySubIds.length > 0
       if (!hasSubPulses && fakeRand(idx++) > 0.45) {
-        addPulse(orbit.id, Math.round(1 + fakeRand(idx++) * 4), date, undefined, 'check' as PulseKind)
+        promises.push(api.pulses.create({ nodeId: orbit.id, value: Math.round(1 + fakeRand(idx++) * 4), date, kind: 'check' as PulseKind }))
       }
     })
   }
+
+  // To avoid hammering the DB too hard, we could chunk them, but SQLite can handle ~1000 inserts concurrently.
+  await Promise.all(promises)
 }
 
-export function clearPulseData(): void {
-  clearPulses()
+export async function clearPulseData(pulses: any[]): Promise<void> {
+  const promises = pulses.map(p => api.pulses.delete(p.id))
+  await Promise.all(promises)
 }

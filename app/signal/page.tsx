@@ -3,10 +3,10 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/ui/BottomNav'
 import { colors, fonts, fontSize } from '@/lib/tokens'
-import { getNodes, addPulse } from '@/lib/store'
-import type { StoredNode, PulseKind } from '@/lib/store'
+import { useGraph } from '@/lib/use-data'
+import { api } from '@/lib/api-client'
 import { getProgress } from '@/lib/aggregate'
-import type { Progress } from '@/lib/aggregate'
+import type { Progress, PulseKind } from '@/lib/aggregate'
 
 type InputMode = '점수' | '시간' | '체크' | '투자' | '진행도'
 
@@ -28,14 +28,11 @@ const MODE_KIND: Record<InputMode, PulseKind> = {
 
 export default function PulsePage() {
   const router = useRouter()
-  const [allNodes, setAllNodes] = useState<StoredNode[]>([])
+  const { nodes, pulses, isLoading, mutate } = useGraph()
+  
   const [selectedOrbit, setSelectedOrbit] = useState<string | null>(null)
   const [selectedSub, setSelectedSub] = useState<string | null>(null)
 
-  useEffect(() => { setAllNodes(getNodes()) }, [])
-
-  const ORBIT_NODES = allNodes.filter(n => n.type === 'orbit')
-  const SUB_NODES = allNodes.filter(n => n.type === 'sub')
   const [mode, setMode] = useState<InputMode>('점수')
   const [score, setScore] = useState(7)
   const [timeVal, setTimeVal] = useState(30)
@@ -45,7 +42,12 @@ export default function PulsePage() {
   const [progress, setProgress] = useState(60)
   const [memo, setMemo] = useState('')
 
-  const selectedNode = ORBIT_NODES.find((n: StoredNode) => n.id === selectedOrbit)
+  if (isLoading) return null
+
+  const ORBIT_NODES = nodes.filter(n => n.type === 'orbit')
+  const SUB_NODES = nodes.filter(n => n.type === 'sub')
+
+  const selectedNode = ORBIT_NODES.find(n => n.id === selectedOrbit)
   const subNodes = selectedOrbit
     ? SUB_NODES.filter(n => n.parentId === selectedOrbit)
     : []
@@ -53,15 +55,14 @@ export default function PulsePage() {
   const accentIdx = selectedNode ? selectedNode.orbitIdx : -1
   const accent = accentIdx >= 0 ? colors.orbits[accentIdx % colors.orbits.length] : colors.core
 
-  const [progressData, setProgressData] = useState<Progress | null>(null)
-  useEffect(() => {
-    const targetId = selectedSub ?? selectedOrbit
-    if (!targetId) { setProgressData(null); return }
-    const p = getProgress(targetId)
-    setProgressData(p.hasGoal ? p : null)
-  }, [selectedSub, selectedOrbit])
+  let progressData: Progress | null = null
+  const targetId = selectedSub ?? selectedOrbit
+  if (targetId) {
+    const p = getProgress(nodes as any, pulses as any, targetId)
+    progressData = p.hasGoal ? p : null
+  }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedOrbit) return
     const targetId = selectedSub ?? selectedOrbit
 
@@ -76,7 +77,13 @@ export default function PulsePage() {
       default:       value = 0
     }
 
-    addPulse(targetId, value, undefined, memo.trim() || undefined, MODE_KIND[mode])
+    await api.pulses.create({
+      nodeId: targetId,
+      value,
+      kind: MODE_KIND[mode],
+      memo: memo.trim() || undefined,
+    })
+    mutate()
     router.push('/dashboard')
   }
 

@@ -4,8 +4,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import BottomNav from '@/components/ui/BottomNav'
 import { colors, fonts, fontSize } from '@/lib/tokens'
-import { getNodes, getAchievedIds } from '@/lib/store'
-import type { StoredNode } from '@/lib/store'
+import { useGraph } from '@/lib/use-data'
 import {
   getStreak,
   getTodayPulseCount,
@@ -23,55 +22,32 @@ const MandalaView = dynamic(
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { nodes, pulses, isLoading } = useGraph()
+
   const [view, setView] = useState<'3d' | '2d'>('3d')
-
-  // Live stats
-  const [streak, setStreak] = useState(0)
-  const [todayCount, setTodayCount] = useState(0)
-  const [weekRate, setWeekRate] = useState(0)
-  const [progressItems, setProgressItems] = useState<{ node: StoredNode; prog: Progress }[]>([])
-  const [achievedIds, setAchievedIds] = useState<Set<string>>(new Set())
-
-  // Mandala data
-  const [core, setCore] = useState<StoredNode | null>(null)
-  const [orbits, setOrbits] = useState<StoredNode[]>([])
-  const [subs, setSubs] = useState<StoredNode[]>([])
-  const [progressMap, setProgressMap] = useState<Record<string, Progress>>({})
-
   const mandalaRef = useRef<MandalaViewHandle>(null)
 
   // Live date
   const now = new Date()
   const dateLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`
 
-  const refresh = () => {
-    const nodes = getNodes()
-    const orbitNodes = nodes.filter(n => n.type === 'orbit')
-    const subNodes = nodes.filter(n => n.type === 'sub')
-    const coreNode = nodes.find(n => n.type === 'core') ?? null
-    const achieved = getAchievedIds()
+  if (isLoading) return null
 
-    setStreak(getStreak())
-    setTodayCount(getTodayPulseCount())
-    setWeekRate(getThisWeekRate())
-    setAchievedIds(achieved)
+  const orbitNodes = nodes.filter(n => n.type === 'orbit')
+  const subNodes = nodes.filter(n => n.type === 'sub')
+  const coreNode = nodes.find(n => n.type === 'core') ?? null
+  const achievedIds = new Set(nodes.filter(n => n.achievedAt).map(n => n.id))
 
-    // Progress items for HUD (nodes with goals)
-    const items = [...orbitNodes, ...subNodes]
-      .map(n => ({ node: n, prog: getProgress(n.id) }))
-      .filter(({ prog }) => prog.hasGoal)
-    setProgressItems(items)
+  const streak = getStreak(pulses as any)
+  const todayCount = getTodayPulseCount(pulses as any)
+  const weekRate = getThisWeekRate(pulses as any)
 
-    // Mandala data
-    setCore(coreNode)
-    setOrbits(orbitNodes)
-    setSubs(subNodes)
-    const map: Record<string, Progress> = {}
-    nodes.forEach(n => { map[n.id] = getProgress(n.id) })
-    setProgressMap(map)
-  }
+  const progressItems = [...orbitNodes, ...subNodes]
+    .map(n => ({ node: n, prog: getProgress(nodes as any, pulses as any, n.id) }))
+    .filter(({ prog }) => prog.hasGoal)
 
-  useEffect(() => { refresh() }, [])
+  const progressMap: Record<string, Progress> = {}
+  nodes.forEach(n => { progressMap[n.id] = getProgress(nodes as any, pulses as any, n.id) })
 
   return (
     <main
@@ -97,11 +73,11 @@ export default function DashboardPage() {
               padding: '80px 16px 100px',
             }}
           >
-            <MandalaView
+              <MandalaView
               ref={mandalaRef}
-              core={core}
-              orbits={orbits}
-              subs={subs}
+              core={coreNode as any}
+              orbits={orbitNodes as any}
+              subs={subNodes as any}
               progressMap={progressMap}
               achievedIds={achievedIds}
             />

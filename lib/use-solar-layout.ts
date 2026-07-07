@@ -1,7 +1,7 @@
 'use client'
 import { useMemo } from 'react'
-import { getNodes, useStoreVersion } from './store'
-import type { StoredNode } from './store'
+import { useGraph } from './use-data'
+import type { Node } from './use-data'
 import { getPlanetArchetype } from './planet-archetype'
 import type { PlanetArchetype } from './planet-archetype'
 import { h01 } from './hash'
@@ -16,7 +16,7 @@ const SPEED_BASE = 0.42  // Kepler-ish base speed
 // ── types ─────────────────────────────────────────────────────────────────────
 
 export interface SatelliteLayout {
-  node: StoredNode
+  node: Node
   orbitRadius: number
   orbitSpeed: number
   phase0: number
@@ -28,7 +28,7 @@ export interface SatelliteLayout {
 }
 
 export interface PlanetLayout {
-  node: StoredNode
+  node: Node
   archetype: PlanetArchetype
   orbitRadius: number
   orbitSpeed: number
@@ -42,17 +42,16 @@ export interface PlanetLayout {
 }
 
 export interface SolarLayout {
-  core: StoredNode | null
+  core: Node | null
   planets: PlanetLayout[]
 }
 
 // ── hook ──────────────────────────────────────────────────────────────────────
 
 export function useSolarLayout(): SolarLayout {
-  const storeVersion = useStoreVersion()
+  const { nodes, pulses } = useGraph()
 
   return useMemo(() => {
-    const nodes = getNodes()
     const core = nodes.find(n => n.type === 'core') ?? null
     const orbitNodes = nodes.filter(n => n.type === 'orbit')
     const subNodes   = nodes.filter(n => n.type === 'sub')
@@ -68,7 +67,7 @@ export function useSolarLayout(): SolarLayout {
       const spinSpeed   = 0.28 + seed * 0.44
 
       // Progress-based size scaling — grows with accumulated pulses
-      const prog = getProgress(node.id)
+      const prog = getProgress(nodes as any, pulses as any, node.id)
       const baseSize = nodeBaseRadius.orbit * (0.82 + seed * 0.42)
       const size     = baseSize * (1 + 0.35 * prog.pct)
       const progressLabel = prog.hasGoal
@@ -79,7 +78,7 @@ export function useSolarLayout(): SolarLayout {
 
       const satellites: SatelliteLayout[] = mySubNodes.map((sub, si) => {
         const ss = h01(sub.id)
-        const subProg = getProgress(sub.id)
+        const subProg = getProgress(nodes as any, pulses as any, sub.id)
         const subBaseSize = nodeBaseRadius.sub * (1.1 + ss * 0.3)
         const subSize = subBaseSize * (1 + 0.35 * subProg.pct)
         return {
@@ -113,7 +112,5 @@ export function useSolarLayout(): SolarLayout {
     })
 
     return { core, planets }
-  // storeVersion triggers recompute on every store write
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeVersion])
+  }, [nodes, pulses])
 }

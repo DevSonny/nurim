@@ -7,7 +7,8 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, AdaptiveDpr, PerformanceMonitor } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
-import { getAchievedIds, setAchieved, getNodes } from '@/lib/store'
+import { useGraph } from '@/lib/use-data'
+import { api } from '@/lib/api-client'
 import { useIsDesktop } from '@/lib/use-media'
 import AchievementToast from './AchievementToast'
 import SolarSystem from './SolarSystem'
@@ -48,7 +49,9 @@ function CameraInit({
 // ── Main scene ─────────────────────────────────────────────────────────────
 
 export default function SolarSystemScene() {
-  const [achievedIds, setAchievedIds] = useState<Set<string>>(new Set())
+  const { nodes, mutate } = useGraph()
+  const achievedIds = new Set(nodes.filter(n => n.achievedAt).map(n => n.id))
+
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [ignitingPlanetId, setIgnitingPlanetId] = useState<string | null>(null)
   const [dockingSatId, setDockingSatId] = useState<string | null>(null)
@@ -60,31 +63,27 @@ export default function SolarSystemScene() {
   const orbitRef = useRef<any>(null)
   const isDesktop = useIsDesktop()
 
-  // Load achieved state from store on mount
   useEffect(() => {
-    setAchievedIds(getAchievedIds())
     return () => { document.body.style.cursor = 'auto' }
   }, [])
 
   // Look up pending node for the toast
-  const pendingNode = pendingId ? getNodes().find(n => n.id === pendingId) : null
+  const pendingNode = pendingId ? nodes.find(n => n.id === pendingId) : null
 
   const handleConfirm = useCallback(() => {
     if (!pendingId) return
     const id = pendingId
-    const node = getNodes().find(n => n.id === id)
+    const node = nodes.find(n => n.id === id)
     setPendingId(null)
 
-    // Persist
-    setAchieved(id, true)
-    setAchievedIds(prev => new Set([...prev, id]))
+    api.nodes.update(id, { achievedAt: Date.now() }).then(() => mutate())
 
     if (node?.type === 'orbit') {
       setIgnitingPlanetId(id)
     } else if (node?.type === 'sub') {
       setDockingSatId(id)
     }
-  }, [pendingId])
+  }, [pendingId, nodes, mutate])
 
   const handleCancel = useCallback(() => setPendingId(null), [])
 

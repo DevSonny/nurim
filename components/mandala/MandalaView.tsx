@@ -4,7 +4,7 @@
 
 import { useRef, forwardRef, useImperativeHandle } from 'react'
 import { colors, fonts } from '@/lib/tokens'
-import type { StoredNode } from '@/lib/store'
+import type { Node } from '@/lib/use-data'
 import type { Progress } from '@/lib/aggregate'
 
 export interface MandalaViewHandle {
@@ -12,9 +12,9 @@ export interface MandalaViewHandle {
 }
 
 interface MandalaViewProps {
-  core: StoredNode | null
-  orbits: StoredNode[]
-  subs: StoredNode[]
+  core: Node | null
+  orbits: Node[]
+  subs: Node[]
   progressMap: Record<string, Progress>
   achievedIds: Set<string>
 }

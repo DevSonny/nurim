@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react'
 import BottomNav from '@/components/ui/BottomNav'
 import { colors, fonts, fontSize } from '@/lib/tokens'
-import { getNodes } from '@/lib/store'
-import type { StoredNode } from '@/lib/store'
+import { useGraph } from '@/lib/use-data'
 import {
   getSeries,
   getStreak,
@@ -25,15 +24,13 @@ const DAYS_7 = ['월', '화', '수', '목', '금', '토', '일']
 
 export default function StatsPage() {
   const isDesktop = useIsDesktop()
-  const [allNodes, setAllNodes] = useState<StoredNode[]>([])
+  const { nodes, pulses, isLoading } = useGraph()
   const [tab, setTab] = useState<string>('개요')
   const [timeframe, setTimeframe] = useState<Timeframe>('week')
 
-  useEffect(() => {
-    setAllNodes(getNodes())
-  }, [])
+  if (isLoading) return null
 
-  const orbits = allNodes.filter(n => n.type === 'orbit')
+  const orbits = nodes.filter(n => n.type === 'orbit')
   const tabs = ['개요', ...orbits.map(o => o.label)]
 
   const accent = (() => {
@@ -46,28 +43,28 @@ export default function StatsPage() {
     if (tab === '개요') return null
     const orbit = orbits.find(o => o.label === tab)
     if (!orbit) return null
-    return getOrbitAndSubIds(orbit.id)
+    return getOrbitAndSubIds(nodes as any, orbit.id)
   })()
 
   const metric = tabIds ? 'kind' : 'count'
-  const seriesIds = tabIds ?? allNodes.map(n => n.id)
+  const seriesIds = tabIds ?? nodes.map(n => n.id)
   const count = SERIES_COUNT[timeframe]
-  const series = getSeries(seriesIds, timeframe, count, { metric })
+  const series = getSeries(pulses as any, seriesIds, timeframe, count, { metric })
   const seriesUnit = series[0]?.unit ?? '회'
 
-  const streak = tabIds ? getStreak(tabIds[0]) : getStreak()
-  const activityRate = getActivityRate(tabIds)
-  const bestDay = getBestDayOfWeek(tabIds)
-  const thisWeekRate = getThisWeekRate()
-  const heatmap = getHeatmap(tabIds ?? allNodes.map(n => n.id).filter(id => {
-    const node = allNodes.find(n => n.id === id)
+  const streak = tabIds ? getStreak(pulses as any, tabIds[0]) : getStreak(pulses as any)
+  const activityRate = getActivityRate(pulses as any, tabIds)
+  const bestDay = getBestDayOfWeek(pulses as any, tabIds)
+  const thisWeekRate = getThisWeekRate(pulses as any)
+  const heatmap = getHeatmap(pulses as any, tabIds ?? nodes.map(n => n.id).filter(id => {
+    const node = nodes.find(n => n.id === id)
     return node?.type !== 'core'
   }))
 
-  const categoryTotalsAll = getCategoryTotals(tabIds, 'all')
-  const categoryTotalsMonth = getCategoryTotals(tabIds, 'month')
+  const categoryTotalsAll = getCategoryTotals(nodes as any, pulses as any, tabIds, 'all')
+  const categoryTotalsMonth = getCategoryTotals(nodes as any, pulses as any, tabIds, 'month')
 
-  const trendSeries = getSeries(seriesIds, 'month', 6, { metric })
+  const trendSeries = getSeries(pulses as any, seriesIds, 'month', 6, { metric })
 
   return (
     <main
@@ -351,7 +348,7 @@ function BarChart({ series, accent, timeframe }: {
   )
 }
 
-function CategoryList({ totals, orbits }: { totals: CategoryTotal[]; orbits: StoredNode[] }) {
+function CategoryList({ totals, orbits }: { totals: CategoryTotal[]; orbits: any[] }) {
   const EXPENSE_COLOR = '#ff4466'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -464,7 +461,7 @@ function ScoreRow({ label, val, accent }: { label: string; val: string; accent: 
   )
 }
 
-function MonthTotalsGrid({ totals, orbits }: { totals: CategoryTotal[]; orbits: StoredNode[] }) {
+function MonthTotalsGrid({ totals, orbits }: { totals: CategoryTotal[]; orbits: any[] }) {
   const EXPENSE_COLOR = '#ff4466'
   return (
     <div
