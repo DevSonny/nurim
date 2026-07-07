@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { proofs } from '@/lib/db/schema'
-import { desc, eq } from 'drizzle-orm'
+import { proofs, nodes } from '@/lib/db/schema'
+import { desc, eq, and } from 'drizzle-orm'
 
 export async function GET(req: Request) {
   const session = await auth()
@@ -23,6 +23,16 @@ export async function POST(req: Request) {
 
   const body = await req.json()
   const { nodeId, body: content } = body
+
+  if (nodeId) {
+    const parentNode = await db.query.nodes.findFirst({
+      where: and(eq(nodes.id, nodeId), eq(nodes.userId, session.user.id))
+    })
+    if (!parentNode) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+  }
+
   const id = crypto.randomUUID()
   
   const [newProof] = await db.insert(proofs).values({

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { nodes } from '@/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { nodes, pulses, proofs } from '@/lib/db/schema'
+import { eq, and, inArray } from 'drizzle-orm'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -46,13 +46,34 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return new Response("Cannot delete core node", { status: 400 })
   }
 
+  // Find sub-nodes first if it's an orbit
+  const isOrbit = nodeToDelete.type === 'orbit'
+  let subNodeIds: string[] = []
+  
+  if (isOrbit) {
+    const subNodes = await db.select({ id: nodes.id }).from(nodes).where(and(eq(nodes.parentId, id), eq(nodes.userId, session.user.id)))
+    subNodeIds = subNodes.map(n => n.id)
+  }
+
+  // Delete pulses and proofs for main node
+  await db.delete(pulses).where(eq(pulses.nodeId, id))
+  await db.delete(proofs).where(eq(proofs.nodeId, id))
+
+  // Delete pulses and proofs for sub-nodes
+  if (subNodeIds.length > 0) {
+    await db.delete(pulses).where(inArray(pulses.nodeId, subNodeIds))
+    await db.delete(proofs).where(inArray(proofs.nodeId, subNodeIds))
+  }
+
+  // Delete sub-nodes
+  if (isOrbit) {
+    await db.delete(nodes).where(and(eq(nodes.parentId, id), eq(nodes.userId, session.user.id)))
+  }
+
+  // Delete main node
   const [deletedNode] = await db.delete(nodes)
     .where(and(eq(nodes.id, id), eq(nodes.userId, session.user.id)))
     .returning()
-
-  if (deletedNode?.type === 'orbit') {
-    await db.delete(nodes).where(and(eq(nodes.parentId, id), eq(nodes.userId, session.user.id)))
-  }
 
   return NextResponse.json(deletedNode)
 }

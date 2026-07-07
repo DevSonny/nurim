@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { pulses } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { pulses, nodes } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 
 export async function GET(req: Request) {
   const session = await auth()
@@ -23,6 +23,14 @@ export async function POST(req: Request) {
 
   const body = await req.json()
   const { nodeId, date, value, kind, memo } = body
+
+  const parentNode = await db.query.nodes.findFirst({
+    where: and(eq(nodes.id, nodeId), eq(nodes.userId, session.user.id))
+  })
+  if (!parentNode) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   const id = crypto.randomUUID()
   
   const [newPulse] = await db.insert(pulses).values({

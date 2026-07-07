@@ -92,7 +92,7 @@ function AddInput({
 }: {
   placeholder: string
   accent: string
-  onAdd: (label: string) => boolean
+  onAdd: (label: string) => boolean | Promise<boolean>
   onClose: () => void
 }) {
   const [val, setVal] = useState('')
@@ -101,11 +101,11 @@ function AddInput({
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  const submit = () => {
+  const submit = async () => {
     const trimmed = val.trim()
     if (!trimmed) { setError('이름을 입력하세요'); return }
     if (trimmed.length > 12) { setError('12자 이하로 입력하세요'); return }
-    const ok = onAdd(trimmed)
+    const ok = await onAdd(trimmed)
     if (!ok) { setError('최대 개수에 도달했습니다'); return }
     onClose()
   }
@@ -384,17 +384,27 @@ export default function SettingsPage() {
 
   const orbits = nodes.filter(n => n.type === 'orbit')
 
-  const handleAddOrbit = (label: string): boolean => {
+  const handleAddOrbit = async (label: string): Promise<boolean> => {
     if (orbits.length >= MAX_ORBITS) return false
-    api.nodes.create({ type: 'orbit', label, orbitIdx: orbits.length }).then(() => mutate()).catch(() => alert("오류가 발생했습니다."))
+    try {
+      await api.nodes.create({ type: 'orbit', label, orbitIdx: orbits.length })
+      mutate()
+    } catch {
+      alert("오류가 발생했습니다.")
+    }
     return true
   }
 
-  const handleAddSub = (parentId: string) => (label: string): boolean => {
+  const handleAddSub = (parentId: string) => async (label: string): Promise<boolean> => {
     const subs = nodes.filter(n => n.type === 'sub' && n.parentId === parentId)
     if (subs.length >= MAX_SUBS_PER_ORBIT) return false
     const parentOrbit = nodes.find(n => n.id === parentId)
-    api.nodes.create({ type: 'sub', label, parentId, orbitIdx: parentOrbit?.orbitIdx ?? 0 }).then(() => mutate()).catch(() => alert("오류가 발생했습니다."))
+    try {
+      await api.nodes.create({ type: 'sub', label, parentId, orbitIdx: parentOrbit?.orbitIdx ?? 0 })
+      mutate()
+    } catch {
+      alert("오류가 발생했습니다.")
+    }
     return true
   }
 

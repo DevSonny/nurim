@@ -41,3 +41,13 @@ DONE
 - Added cascade delete for sub-nodes when deleting an orbit.
 - Wrapped mutation calls in try/catch for UI error handling.
 - Destructured payload to avoid mass assignment on proofs route.
+
+## Final Re-Review 2 Fix Report
+- Fixed Mass Assignment Vulnerability in PATCH /api/nodes to strictly limit updateable fields.
+- Added protection against deleting the 'core' node in DELETE /api/nodes.
+- Handled blank screens during loading by preserving page layouts while data is fetched.
+
+## Final Re-Review 3 Fix Report
+- Validated ownership of `parentId` and `nodeId` in `nodes`, `pulses`, and `proofs` creation to prevent IDOR risks.
+- Implemented cascading deletes for `pulses` and `proofs` when a node (and sub-nodes) is deleted, preventing orphaned records.
+- Changed synchronous `handleAddOrbit` and `handleAddSub` in UI to proper asynchronous functions, awaiting their API calls.
