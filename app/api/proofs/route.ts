@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { proofs } from '@/lib/db/schema'
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 
 export async function GET(req: Request) {
   const session = await auth()
@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const allProofs = await db.select().from(proofs).orderBy(desc(proofs.createdAt))
+  const allProofs = await db.select().from(proofs).where(eq(proofs.userId, session.user.id)).orderBy(desc(proofs.createdAt))
 
   return NextResponse.json(allProofs)
 }
