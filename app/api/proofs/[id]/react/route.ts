@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { reactions } from '@/lib/db/schema'
+import { reactions, proofs } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm'
 
 export async function POST(
@@ -16,6 +16,16 @@ export async function POST(
   const { id: proofId } = await params
   const { reactionType } = await req.json()
   const userId = session.user.id
+
+  const proof = await db
+    .select()
+    .from(proofs)
+    .where(and(eq(proofs.id, proofId), eq(proofs.userId, userId)))
+    .limit(1)
+
+  if (proof.length === 0) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
 
   const existing = await db
     .select()
