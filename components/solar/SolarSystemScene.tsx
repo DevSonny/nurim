@@ -7,6 +7,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, AdaptiveDpr, PerformanceMonitor } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useGraph } from '@/lib/use-data'
 import { api } from '@/lib/api-client'
 import { useIsDesktop } from '@/lib/use-media'
@@ -35,7 +36,7 @@ function CameraInit({
   orbitRef,
 }: {
   isDesktop: boolean
-  orbitRef: React.MutableRefObject<any>
+  orbitRef: React.MutableRefObject<OrbitControlsImpl | null>
 }) {
   useEffect(() => {
     const ctrl = orbitRef.current
@@ -60,7 +61,7 @@ export default function SolarSystemScene() {
   const [hovering, setHovering] = useState(false)
 
   const driftOffset = useRef(new THREE.Vector3(0, 0, 0))
-  const orbitRef = useRef<any>(null)
+  const orbitRef = useRef<OrbitControlsImpl | null>(null)
   const isDesktop = useIsDesktop()
 
   useEffect(() => {

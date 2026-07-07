@@ -47,7 +47,7 @@ export async function seedPulseData(nodes: StoredNode[]): Promise<void> {
     await api.nodes.update(invest.id, { goalType: 'accumulation', target: 500000, unit: '원', period: 'month' })
   }
 
-  const promises: Promise<any>[] = []
+  const promises: Promise<unknown>[] = []
 
   // Generate 90 days of pulses
   let idx = 0
