@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     if (!parentNode) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
+    if (parentNode.type !== 'orbit') return NextResponse.json({ error: 'Parent must be an orbit' }, { status: 400 });
   }
 
   const id = crypto.randomUUID()

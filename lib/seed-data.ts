@@ -105,11 +105,14 @@ export async function seedPulseData(nodes: StoredNode[]): Promise<void> {
     })
   }
 
-  // To avoid hammering the DB too hard, we could chunk them, but SQLite can handle ~1000 inserts concurrently.
-  await Promise.all(promises)
+  // To avoid hammering the DB too hard, we chunk them by running sequentially.
+  for (const promise of promises) {
+    await promise;
+  }
 }
 
 export async function clearPulseData(pulses: Pulse[]): Promise<void> {
-  const promises = pulses.map(p => api.pulses.delete(p.id))
-  await Promise.all(promises)
+  for (const p of pulses) {
+    await api.pulses.delete(p.id)
+  }
 }

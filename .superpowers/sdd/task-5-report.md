@@ -51,3 +51,12 @@ DONE
 - Validated ownership of `parentId` and `nodeId` in `nodes`, `pulses`, and `proofs` creation to prevent IDOR risks.
 - Implemented cascading deletes for `pulses` and `proofs` when a node (and sub-nodes) is deleted, preventing orphaned records.
 - Changed synchronous `handleAddOrbit` and `handleAddSub` in UI to proper asynchronous functions, awaiting their API calls.
+
+## Final Re-Review 4 Fix Report
+- Fixed IDOR vulnerability in `PATCH /api/pulses/[id]` by validating that `nodeId` belongs to the user.
+- Added validation to prevent the creation of additional `core` nodes in `POST /api/nodes`.
+- Removed the residual script file `rewrite.py`.
+
+## Final Re-Review 5 Fix Report
+- Fixed IDOR vulnerability in Proof Reactions by verifying that the proof exists and belongs to the user before toggling the reaction.
+- Updated `README.md` and created `README.ko.md` to document the new architecture (Next.js Route Handlers, Drizzle ORM, Turso, and SWR) and environment variables for local development and deployment.
