@@ -1,12 +1,11 @@
 'use client'
-import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { colors } from '@/lib/tokens'
 
 export default function GoogleButton() {
-  const router = useRouter()
   return (
     <button
-      onClick={() => router.push('/dashboard')}
+      onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
       style={{
         width: '100%',
         padding: '13px 24px',

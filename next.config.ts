@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     '@react-three/drei',
     '@react-three/postprocessing',
     'postprocessing',
+    '@libsql/client',
   ],
 }
 
