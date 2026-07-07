@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { pulses } from '@/lib/db/schema'
+import { pulses, nodes } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -14,6 +14,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = resolvedParams
   const body = await req.json()
   const { nodeId, date, value, kind, memo } = body
+
+  if (nodeId) {
+    const parentNode = await db.query.nodes.findFirst({
+      where: and(eq(nodes.id, nodeId), eq(nodes.userId, session.user.id))
+    })
+    if (!parentNode) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+  }
 
   const [updatedPulse] = await db.update(pulses)
     .set({ nodeId, date, value, kind, memo })

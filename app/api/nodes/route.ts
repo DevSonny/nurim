@@ -24,6 +24,8 @@ export async function POST(req: Request) {
   const body = await req.json()
   const { label, type, parentId, orbitIdx, target, unit, period, goalType, achievedAt } = body
   
+  if (type === 'core') return NextResponse.json({ error: 'Cannot create additional core nodes' }, { status: 400 });
+
   if (parentId) {
     const parentNode = await db.query.nodes.findFirst({
       where: and(eq(nodes.id, parentId), eq(nodes.userId, session.user.id))
