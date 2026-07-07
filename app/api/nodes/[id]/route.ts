@@ -44,5 +44,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return NextResponse.json({ error: 'Not Found' }, { status: 404 })
   }
 
+  if (deletedNode.type === 'orbit') {
+    await db.delete(nodes).where(and(eq(nodes.parentId, id), eq(nodes.userId, session.user.id)))
+  }
+
   return NextResponse.json(deletedNode)
 }

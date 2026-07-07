@@ -22,10 +22,12 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
+  const { nodeId, body: content } = body
   const id = crypto.randomUUID()
   
   const [newProof] = await db.insert(proofs).values({
-    ...body,
+    nodeId,
+    body: content,
     id,
     userId: session.user.id,
     createdAt: Date.now(),

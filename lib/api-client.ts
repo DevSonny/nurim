@@ -1,9 +1,9 @@
 import type { InferInsertModel } from 'drizzle-orm'
 import { nodes, pulses, proofs } from './db/schema'
 
-type PartialNode = Partial<InferInsertModel<typeof nodes>>
-type PartialPulse = Partial<InferInsertModel<typeof pulses>>
-type PartialProof = Partial<InferInsertModel<typeof proofs>>
+type InsertNode = Omit<InferInsertModel<typeof nodes>, 'id' | 'userId' | 'createdAt'>
+type InsertPulse = Omit<InferInsertModel<typeof pulses>, 'id' | 'userId' | 'createdAt'>
+type InsertProof = Omit<InferInsertModel<typeof proofs>, 'id' | 'userId' | 'createdAt'>
 
 export const fetcher = async (url: string) => {
   const res = await fetch(url)
@@ -15,7 +15,7 @@ export const fetcher = async (url: string) => {
 
 export const api = {
   nodes: {
-    create: async (data: Omit<PartialNode, 'id' | 'userId' | 'createdAt'>) => {
+    create: async (data: InsertNode) => {
       const res = await fetch('/api/nodes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -24,7 +24,7 @@ export const api = {
       if (!res.ok) throw new Error('Failed to create node')
       return res.json()
     },
-    update: async (id: string, data: Omit<PartialNode, 'id' | 'userId' | 'createdAt'>) => {
+    update: async (id: string, data: Partial<InsertNode>) => {
       const res = await fetch(`/api/nodes/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -51,7 +51,7 @@ export const api = {
     },
   },
   pulses: {
-    create: async (data: Omit<PartialPulse, 'id' | 'userId' | 'createdAt'>) => {
+    create: async (data: InsertPulse) => {
       const res = await fetch('/api/pulses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,7 +60,7 @@ export const api = {
       if (!res.ok) throw new Error('Failed to create pulse')
       return res.json()
     },
-    update: async (id: string, data: Omit<PartialPulse, 'id' | 'userId' | 'createdAt'>) => {
+    update: async (id: string, data: Partial<InsertPulse>) => {
       const res = await fetch(`/api/pulses/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -78,7 +78,7 @@ export const api = {
     },
   },
   proofs: {
-    create: async (data: Omit<PartialProof, 'id' | 'userId' | 'createdAt'>) => {
+    create: async (data: InsertProof) => {
       const res = await fetch('/api/proofs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

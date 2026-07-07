@@ -5,7 +5,7 @@ import BottomNav from '@/components/ui/BottomNav'
 import { colors, fonts, fontSize } from '@/lib/tokens'
 import { useGraph } from '@/lib/use-data'
 import { api } from '@/lib/api-client'
-import { getProgress } from '@/lib/aggregate'
+import { getProgress, toDateStr } from '@/lib/aggregate'
 import type { Progress, PulseKind } from '@/lib/aggregate'
 
 type InputMode = '점수' | '시간' | '체크' | '투자' | '진행도'
@@ -78,14 +78,19 @@ export default function PulsePage() {
       default:       value = 0
     }
 
-    await api.pulses.create({
-      nodeId: targetId,
-      value,
-      kind: MODE_KIND[mode],
-      memo: memo.trim() || undefined,
-    })
-    mutate()
-    router.push('/dashboard')
+    try {
+      await api.pulses.create({
+        nodeId: targetId,
+        value,
+        kind: MODE_KIND[mode],
+        date: toDateStr(),
+        memo: memo.trim() || undefined,
+      })
+      mutate()
+      router.push('/dashboard')
+    } catch (e) {
+      alert("오류가 발생했습니다.")
+    }
   }
 
   return (

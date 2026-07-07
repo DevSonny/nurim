@@ -381,7 +381,7 @@ export default function SettingsPage() {
 
   const handleAddOrbit = (label: string): boolean => {
     if (orbits.length >= MAX_ORBITS) return false
-    api.nodes.create({ type: 'orbit', label, orbitIdx: orbits.length }).then(() => mutate())
+    api.nodes.create({ type: 'orbit', label, orbitIdx: orbits.length }).then(() => mutate()).catch(() => alert("오류가 발생했습니다."))
     return true
   }
 
@@ -389,7 +389,7 @@ export default function SettingsPage() {
     const subs = nodes.filter(n => n.type === 'sub' && n.parentId === parentId)
     if (subs.length >= MAX_SUBS_PER_ORBIT) return false
     const parentOrbit = nodes.find(n => n.id === parentId)
-    api.nodes.create({ type: 'sub', label, parentId, orbitIdx: parentOrbit?.orbitIdx ?? 0 }).then(() => mutate())
+    api.nodes.create({ type: 'sub', label, parentId, orbitIdx: parentOrbit?.orbitIdx ?? 0 }).then(() => mutate()).catch(() => alert("오류가 발생했습니다."))
     return true
   }
 
@@ -398,7 +398,7 @@ export default function SettingsPage() {
     api.nodes.delete(deletingNode.id).then(() => {
       mutate()
       setDeletingNode(null)
-    })
+    }).catch(() => alert("오류가 발생했습니다."))
   }
 
   const handleSaveGoal = (
@@ -411,14 +411,14 @@ export default function SettingsPage() {
     api.nodes.update(id, { goalType, target, unit: unit || undefined, period }).then(() => {
       mutate()
       setSettingGoalFor(null)
-    })
+    }).catch(() => alert("오류가 발생했습니다."))
   }
 
   const handleClearGoal = (id: string) => {
     api.nodes.update(id, { goalType: null, target: null, unit: null, period: null }).then(() => {
       mutate()
       setSettingGoalFor(null)
-    })
+    }).catch(() => alert("오류가 발생했습니다."))
   }
 
   const deletingNodeHasChildren =
