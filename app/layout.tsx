@@ -9,7 +9,7 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://nurim.pages.dev'),
+  metadataBase: new URL('https://nurim.vercel.app'),
   title: '누림',
   description: '매일이 자라는 곳',
   openGraph: {
