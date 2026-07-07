@@ -28,7 +28,7 @@ const MODE_KIND: Record<InputMode, PulseKind> = {
 
 export default function PulsePage() {
   const router = useRouter()
-  const { nodes, pulses, isLoading, mutate } = useGraph()
+  const { nodes, pulses, isLoading, mutate, isError } = useGraph()
   
   const [selectedOrbit, setSelectedOrbit] = useState<string | null>(null)
   const [selectedSub, setSelectedSub] = useState<string | null>(null)
@@ -42,6 +42,7 @@ export default function PulsePage() {
   const [progress, setProgress] = useState(60)
   const [memo, setMemo] = useState('')
 
+  if (isError) return <div>Error loading data</div>
   if (isLoading) return null
 
   const ORBIT_NODES = nodes.filter(n => n.type === 'orbit')

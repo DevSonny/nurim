@@ -77,7 +77,7 @@ export default function SolarSystemScene() {
     const node = nodes.find(n => n.id === id)
     setPendingId(null)
 
-    api.nodes.update(id, { achievedAt: Date.now() }).then(() => mutate())
+    api.nodes.achieve(id, true).then(() => mutate())
 
     if (node?.type === 'orbit') {
       setIgnitingPlanetId(id)

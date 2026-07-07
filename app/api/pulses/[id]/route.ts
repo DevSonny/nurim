@@ -13,9 +13,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const resolvedParams = await params
   const { id } = resolvedParams
   const body = await req.json()
+  const { nodeId, date, value, kind, memo } = body
 
   const [updatedPulse] = await db.update(pulses)
-    .set(body)
+    .set({ nodeId, date, value, kind, memo })
     .where(and(eq(pulses.id, id), eq(pulses.userId, session.user.id)))
     .returning()
 

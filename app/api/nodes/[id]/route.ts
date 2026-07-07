@@ -13,9 +13,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const resolvedParams = await params
   const { id } = resolvedParams
   const body = await req.json()
+  const { label, type, parentId, orbitIdx, target, unit, period, goalType, achievedAt } = body
 
   const [updatedNode] = await db.update(nodes)
-    .set(body)
+    .set({ label, type, parentId, orbitIdx, target, unit, period, goalType, achievedAt })
     .where(and(eq(nodes.id, id), eq(nodes.userId, session.user.id)))
     .returning()
 

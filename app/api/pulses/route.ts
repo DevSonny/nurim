@@ -22,10 +22,11 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
+  const { nodeId, date, value, kind, memo } = body
   const id = crypto.randomUUID()
   
   const [newPulse] = await db.insert(pulses).values({
-    ...body,
+    nodeId, date, value, kind, memo,
     id,
     userId: session.user.id,
     createdAt: Date.now(),

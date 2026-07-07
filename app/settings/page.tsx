@@ -368,12 +368,13 @@ function GoalBadge({ node, accent, onEdit }: { node: StoredNode; accent: string;
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { nodes, pulses, mutate, isLoading } = useGraph()
+  const { nodes, pulses, mutate, isLoading, isError } = useGraph()
   const [addingOrbit, setAddingOrbit] = useState(false)
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null)
   const [deletingNode, setDeletingNode] = useState<StoredNode | null>(null)
   const [settingGoalFor, setSettingGoalFor] = useState<string | null>(null)
 
+  if (isError) return <div>Error loading data</div>
   if (isLoading) return null
 
   const orbits = nodes.filter(n => n.type === 'orbit')

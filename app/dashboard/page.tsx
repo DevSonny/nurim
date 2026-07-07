@@ -22,7 +22,7 @@ const MandalaView = dynamic(
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { nodes, pulses, isLoading } = useGraph()
+  const { nodes, pulses, isLoading, isError } = useGraph()
 
   const [view, setView] = useState<'3d' | '2d'>('3d')
   const mandalaRef = useRef<MandalaViewHandle>(null)
@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const now = new Date()
   const dateLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`
 
+  if (isError) return <div>Error loading data</div>
   if (isLoading) return null
 
   const orbitNodes = nodes.filter(n => n.type === 'orbit')

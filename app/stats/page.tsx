@@ -24,10 +24,11 @@ const DAYS_7 = ['월', '화', '수', '목', '금', '토', '일']
 
 export default function StatsPage() {
   const isDesktop = useIsDesktop()
-  const { nodes, pulses, isLoading } = useGraph()
+  const { nodes, pulses, isLoading, isError } = useGraph()
   const [tab, setTab] = useState<string>('개요')
   const [timeframe, setTimeframe] = useState<Timeframe>('week')
 
+  if (isError) return <div>Error loading data</div>
   if (isLoading) return null
 
   const orbits = nodes.filter(n => n.type === 'orbit')
